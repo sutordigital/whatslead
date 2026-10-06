@@ -8,10 +8,6 @@ app.use(express.json());
 
 const PORT = Number(process.env.PORT) || 3000;
 
-let webhookDebug: any = {
-  status: "waiting"
-};
-
 async function sendWhatsAppMessage(
   phoneNumberId: string,
   accessToken: string,
@@ -76,51 +72,45 @@ app.get("/webhooks/meta", (req, res) => {
 });
 
 app.post("/webhooks/meta", async (req, res) => {
-  res.sendStatus(200);
-
-  webhookDebug = {
-    status: "received",
-    time: new Date().toISOString()
-  };
-
   try {
     const value = req.body?.entry?.[0]?.changes?.[0]?.value;
 
     const message = value?.messages?.[0];
-    const phoneNumberId = value?.metadata?.phone_number_id;
+    const phoneNumberId = value?.metadata?.phone_number_id ?? null;
 
-    webhookDebug.hasValue = Boolean(value);
-    webhookDebug.hasMessage = Boolean(message);
-    webhookDebug.phoneNumberId = phoneNumberId ?? null;
-    webhookDebug.messageType = message?.type ?? null;
+    await db.query(
+      `
+      insert into public.webhook_debug_events (
+        event_type,
+        phone_number_id,
+        message_from,
+        message_type,
+        message_text,
+        raw_payload
+      )
+      values ($1, $2, $3, $4, $5, $6)
+      `,
+      [
+        message ? "message" : "other",
+        phoneNumberId,
+        message?.from ?? null,
+        message?.type ?? null,
+        message?.text?.body ?? null,
+        req.body
+      ]
+    );
 
-    if (message?.from) {
-      webhookDebug.from = "****" + message.from.slice(-4);
-    }
+    res.sendStatus(200);
 
-    if (!message) {
-      webhookDebug.status = "no_message_event";
-      return;
-    }
-
-    if (!phoneNumberId) {
-      webhookDebug.status = "missing_phone_number_id";
+    if (!message || !phoneNumberId) {
       return;
     }
 
     if (message.type !== "text") {
-      webhookDebug.status = "non_text_message";
       return;
     }
 
-    webhookDebug.incomingText = message.text?.body ?? null;
-    webhookDebug.status = "looking_up_account";
-
     const account = await getWhatsAppAccount(phoneNumberId);
-
-    webhookDebug.accountFound = true;
-    webhookDebug.tokenLoaded = Boolean(account.access_token);
-    webhookDebug.status = "sending_reply";
 
     await sendWhatsAppMessage(
       account.phone_number_id,
@@ -129,18 +119,14 @@ app.post("/webhooks/meta", async (req, res) => {
       "WhatsLead received your message ✅"
     );
 
-    webhookDebug.status = "reply_sent";
+    console.log("WhatsLead auto reply sent");
   } catch (error) {
-    webhookDebug.status = "error";
-    webhookDebug.error =
-      error instanceof Error ? error.message : String(error);
-
     console.error("Webhook processing failed:", error);
-  }
-});
 
-app.get("/debug/webhook-state", (_req, res) => {
-  res.json(webhookDebug);
+    if (!res.headersSent) {
+      res.sendStatus(500);
+    }
+  }
 });
 
 app.get("/debug/latest-webhook", async (_req, res) => {
