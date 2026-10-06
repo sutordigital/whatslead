@@ -1,5 +1,6 @@
 import express from "express";
 import { db } from "./db.js";
+import { getWhatsAppAccount } from "./services/whatsappAccount.service.js";
 
 const app = express();
 
@@ -47,6 +48,27 @@ app.get("/db-test", async (_req, res) => {
 
     res.status(500).json({
       connected: false
+    });
+  }
+});
+
+app.get("/whatsapp-account-test", async (_req, res) => {
+  try {
+    const account = await getWhatsAppAccount("1389500287577115");
+
+    res.json({
+      found: true,
+      tenantId: account.tenant_id,
+      phoneNumberId: account.phone_number_id,
+      wabaId: account.waba_id,
+      displayNumber: account.display_number,
+      tokenLoaded: Boolean(account.access_token)
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      found: false
     });
   }
 });
