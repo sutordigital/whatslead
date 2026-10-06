@@ -8,6 +8,7 @@ import {
 import { sendWhatsAppTextMessage } from "./services/whatsapp.service.js";
 import { generateAIReply } from "./services/ai.service.js";
 import { persistHumanHandoff } from "./services/handoff.service.js";
+import { getTenantAISettings } from "./services/tenantAISettings.service.js";
 
 const app = express();
 app.use(express.json());
@@ -83,6 +84,13 @@ app.post("/webhooks/meta", async (req, res) => {
     let replyText =
       "Thanks for your message! 我哋已經收到你嘅查詢，團隊會盡快跟進你。";
 
+    const aiSettings = await getTenantAISettings(account.tenant_id);
+
+    if (aiSettings?.ai_enabled === false) {
+      console.log(`AI replies disabled for tenant ${account.tenant_id}`);
+      return;
+    }
+
     if (conversationId && contactId) {
       try {
         const history = await getRecentConversationMessages(conversationId, 12);
@@ -100,6 +108,7 @@ app.post("/webhooks/meta", async (req, res) => {
         replyText = await generateAIReply({
           history: priorHistory,
           customerMessage,
+          settings: aiSettings,
           executeHandoff: async ({ reason, lead_status, summary }) => {
             const handoff = await persistHumanHandoff({
               tenantId: account.tenant_id,
