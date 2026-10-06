@@ -1,5 +1,6 @@
 import PortalShell from "../../../components/PortalShell";
 import ConversationAIModeToggle from "../../../components/ConversationAIModeToggle";
+import HumanReplyComposer from "../../../components/HumanReplyComposer";
 import { requireTenant } from "../../../lib/tenant";
 import { notFound } from "next/navigation";
 
@@ -13,6 +14,12 @@ function aiMode(value:string){
   if(value==="active") return "啟用";
   if(value==="paused") return "暫停";
   return value;
+}
+
+function senderLabel(direction:string, senderType:string){
+  if(direction==="inbound") return "客戶";
+  if(senderType==="human") return "真人客服";
+  return "WhatsLead AI";
 }
 
 export default async function ConversationDetail({params}:{params:Promise<{id:string}>}){
@@ -47,11 +54,15 @@ export default async function ConversationDetail({params}:{params:Promise<{id:st
 
     <div style={{height:16}} />
 
+    <HumanReplyComposer conversationId={conversation.id} />
+
+    <div style={{height:16}} />
+
     <div className="messages">
       {messages?.map(m=>
         <div key={m.id} className={"message "+(m.direction==="outbound"?"outbound":"")}>
           <div className="row">
-            <strong>{m.direction==="inbound"?"客戶":"WhatsLead"}</strong>
+            <strong>{senderLabel(m.direction,m.sender_type)}</strong>
             <small className="muted">{new Date(m.created_at).toLocaleString("zh-HK")}</small>
           </div>
           <div>{m.content}</div>
