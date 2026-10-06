@@ -1,7 +1,10 @@
 import express from "express";
 import { getWhatsAppAccount } from "./services/whatsappAccount.service.js";
+import {
+  persistIncomingTextMessage,
+  persistOutboundTextMessage
+} from "./services/messagePersistence.service.js";
 import { sendWhatsAppTextMessage } from "./services/whatsapp.service.js";
-import { persistIncomingTextMessage } from "./services/messagePersistence.service.js";
 
 const app = express();
 app.use(express.json());
@@ -51,8 +54,10 @@ app.post("/webhooks/meta", async (req, res) => {
 
     const account = await getWhatsAppAccount(phoneNumberId);
 
+    let conversationId: string | null = null;
+
     try {
-      await persistIncomingTextMessage({
+      const persistence = await persistIncomingTextMessage({
         tenantId: account.tenant_id,
         whatsappAccountId: account.id,
         whatsappId: message.from,
@@ -60,16 +65,35 @@ app.post("/webhooks/meta", async (req, res) => {
         metaMessageId: message.id,
         content: message.text?.body ?? ""
       });
+
+      conversationId = persistence.conversationId;
     } catch (error) {
       console.error("Message persistence failed:", error);
     }
 
-    await sendWhatsAppTextMessage(
+    const replyText = "WhatsLead received your message ✅";
+
+    const sendResult = await sendWhatsAppTextMessage(
       account.phone_number_id,
       account.access_token,
       message.from,
-      "WhatsLead received your message ✅"
+      replyText
     );
+
+    const outboundMetaMessageId = sendResult?.messages?.[0]?.id;
+
+    if (conversationId && outboundMetaMessageId) {
+      try {
+        await persistOutboundTextMessage({
+          tenantId: account.tenant_id,
+          conversationId,
+          metaMessageId: outboundMetaMessageId,
+          content: replyText
+        });
+      } catch (error) {
+        console.error("Outbound message persistence failed:", error);
+      }
+    }
 
     return res.sendStatus(200);
   } catch (error) {
