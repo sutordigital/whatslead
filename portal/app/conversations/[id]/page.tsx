@@ -1,0 +1,15 @@
+import PortalShell from "../../../components/PortalShell";
+import { requireTenant } from "../../../lib/tenant";
+import { notFound } from "next/navigation";
+
+export default async function ConversationDetail({params}:{params:Promise<{id:string}>}){
+  const { id } = await params;
+  const { supabase, tenantId } = await requireTenant();
+  const { data: conversation } = await supabase.from("conversations").select("id,contact_id,status,ai_mode").eq("id",id).eq("tenant_id",tenantId).maybeSingle();
+  if(!conversation) notFound();
+  const [{ data: contact }, { data: messages }] = await Promise.all([
+    supabase.from("contacts").select("display_name,phone_number").eq("id",conversation.contact_id).maybeSingle(),
+    supabase.from("messages").select("id,direction,sender_type,content,status,created_at").eq("conversation_id",id).eq("tenant_id",tenantId).order("created_at",{ascending:true}).limit(200)
+  ]);
+  return <PortalShell><a href="/conversations" className="muted">← Conversations</a><h1>{contact?.display_name || contact?.phone_number || "Conversation"}</h1><p className="muted">{contact?.phone_number} · {conversation.status} · AI {conversation.ai_mode}</p><div className="messages">{messages?.map(m=><div key={m.id} className={"message "+(m.direction==="outbound"?"outbound":"")}><div className="row"><strong>{m.direction==="inbound"?"Customer":"WhatsLead"}</strong><small className="muted">{new Date(m.created_at).toLocaleString()}</small></div><div>{m.content}</div></div>)}</div></PortalShell>;
+}
