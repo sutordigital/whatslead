@@ -21,11 +21,29 @@ export type HandoffToolResult = {
   error?: string;
 };
 
+export type BookingToolArgs = {
+  date: string;
+  time: string;
+  booking_type: "consultation" | "follow_up" | "call" | "meeting";
+  duration_minutes: number;
+  notes: string;
+};
+
+export type BookingToolResult = {
+  success: boolean;
+  bookingId?: string;
+  status?: string;
+  scheduledAt?: string;
+  created?: boolean;
+  error?: string;
+};
+
 type GenerateAIReplyParams = {
   history: ConversationHistoryItem[];
   customerMessage: string;
   settings: TenantAISettings | null;
   executeHandoff: (args: HandoffToolArgs) => Promise<HandoffToolResult>;
+  executeBooking: (args: BookingToolArgs) => Promise<BookingToolResult>;
 };
 
 const DEFAULT_SUTOR_CONTEXT = {
@@ -74,11 +92,20 @@ Recommendation behaviour:
 4. Do not guarantee rankings, leads, ROAS, sales, or advertising results.
 5. If information is uncertain or not configured, say a human team member can confirm.
 
+Booking:
+Use the create_booking tool only when the prospect has clearly agreed to a specific future date and time for a consultation, call, or meeting.
+- If the date or time is missing or ambiguous, ask for it instead of calling the tool.
+- Never invent availability.
+- Bookings created by this tool are pending confirmation, not confirmed appointments.
+- If the customer asks for "tomorrow", "next Monday", or another relative date, resolve it using the current Hong Kong date supplied below.
+- Only tell the prospect the booking request was created if the tool result says success=true.
+- When successful, make clear that the booking is pending confirmation unless a human has explicitly confirmed it.
+
 Human escalation:
 Use the handoff_to_human tool when:
 - The prospect asks for a quotation or exact pricing
 - The prospect says they want to start or proceed
-- The prospect wants to book or speak with a person
+- The prospect wants to speak with a person
 - The prospect has a complex requirement needing human review
 - The prospect asks something you cannot answer confidently
 - The prospect is clearly high-potential and ready for the next step
@@ -103,6 +130,44 @@ Safety and accuracy:
 
 Primary objective:
 Move the conversation naturally from enquiry → understanding → useful recommendation → qualified next step, while making the prospect feel helped rather than interrogated.`;
+
+const BOOKING_TOOL = {
+  type: "function",
+  name: "create_booking",
+  description:
+    "Create a pending booking request after the prospect has explicitly agreed to a specific future date and time.",
+  parameters: {
+    type: "object",
+    properties: {
+      date: {
+        type: "string",
+        description: "Booking date in YYYY-MM-DD format, interpreted in Asia/Hong_Kong."
+      },
+      time: {
+        type: "string",
+        description: "Booking time in 24-hour HH:MM format, interpreted in Asia/Hong_Kong."
+      },
+      booking_type: {
+        type: "string",
+        enum: ["consultation", "follow_up", "call", "meeting"],
+        description: "The type of appointment being requested."
+      },
+      duration_minutes: {
+        type: "integer",
+        minimum: 15,
+        maximum: 480,
+        description: "Expected duration in minutes. Use 30 when no duration is specified."
+      },
+      notes: {
+        type: "string",
+        description: "Short factual note about the purpose of the booking."
+      }
+    },
+    required: ["date", "time", "booking_type", "duration_minutes", "notes"],
+    additionalProperties: false
+  },
+  strict: true
+};
 
 const HANDOFF_TOOL = {
   type: "function",
@@ -217,7 +282,17 @@ function buildSystemInstructions(settings: TenantAISettings | null): string {
     .filter(Boolean)
     .join("\n\n");
 
-  return `${BASE_INSTRUCTIONS}\n\n${workspaceContext}`;
+  const hongKongNow = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).format(new Date());
+
+  return `${BASE_INSTRUCTIONS}\n\nCurrent Hong Kong date/time: ${hongKongNow}\nTimezone: Asia/Hong_Kong\n\n${workspaceContext}`;
 }
 
 function formatHistory(history: ConversationHistoryItem[]) {
@@ -266,7 +341,7 @@ async function callOpenAI(
       reasoning: { effort: "none" },
       instructions,
       input,
-      tools: [HANDOFF_TOOL],
+      tools: [HANDOFF_TOOL, BOOKING_TOOL],
       tool_choice: toolChoice
     })
   });
@@ -289,7 +364,8 @@ export async function generateAIReply({
   history,
   customerMessage,
   settings,
-  executeHandoff
+  executeHandoff,
+  executeBooking
 }: GenerateAIReplyParams): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -323,7 +399,8 @@ export async function generateAIReply({
     : []
   ).filter(
     (item: any) =>
-      item?.type === "function_call" && item?.name === "handoff_to_human"
+      item?.type === "function_call" &&
+      (item?.name === "handoff_to_human" || item?.name === "create_booking")
   );
 
   if (functionCalls.length === 0) {
@@ -339,15 +416,20 @@ export async function generateAIReply({
   const functionOutputs: any[] = [];
 
   for (const call of functionCalls) {
-    let result: HandoffToolResult;
+    let result: HandoffToolResult | BookingToolResult;
 
     try {
-      const args = JSON.parse(call.arguments ?? "{}") as HandoffToolArgs;
-      result = await executeHandoff(args);
+      if (call.name === "create_booking") {
+        const args = JSON.parse(call.arguments ?? "{}") as BookingToolArgs;
+        result = await executeBooking(args);
+      } else {
+        const args = JSON.parse(call.arguments ?? "{}") as HandoffToolArgs;
+        result = await executeHandoff(args);
+      }
     } catch (error) {
       result = {
         success: false,
-        error: error instanceof Error ? error.message : "Handoff failed"
+        error: error instanceof Error ? error.message : "Tool execution failed"
       };
     }
 
