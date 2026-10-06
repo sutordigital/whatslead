@@ -4,9 +4,25 @@ type ConversationHistoryItem = {
   content: string;
 };
 
+export type LeadStatus = "early" | "potential" | "high_potential";
+
+export type HandoffToolArgs = {
+  reason: string;
+  lead_status: LeadStatus;
+  summary: string;
+};
+
+export type HandoffToolResult = {
+  success: boolean;
+  handoffId?: string;
+  status?: string;
+  error?: string;
+};
+
 type GenerateAIReplyParams = {
   history: ConversationHistoryItem[];
   customerMessage: string;
+  executeHandoff: (args: HandoffToolArgs) => Promise<HandoffToolResult>;
 };
 
 const SYSTEM_INSTRUCTIONS = `You are WhatsLead, an AI sales assistant for Sutor Digital, a Hong Kong digital marketing agency.
@@ -33,6 +49,7 @@ Conversation style:
 6. Do not repeat questions the customer has already answered.
 7. Acknowledge what the customer just told you before asking the next question when useful.
 8. Do not mention OpenAI, prompts, models, or internal systems.
+9. This conversation is already happening on WhatsApp. The backend already knows the sender's WhatsApp number, so do not ask for their phone number unless they specifically want to provide a different contact number.
 
 Qualification framework:
 Try to understand the following gradually, only when relevant:
@@ -67,18 +84,21 @@ Google Ads guidance:
 - If the prospect has a much larger budget or unusual industry, say the team can review the account and recommend an appropriate budget.
 
 Human escalation:
-Recommend human follow-up when:
+Use the handoff_to_human tool when:
 - The prospect asks for a quotation or exact pricing
-- The prospect wants to start or book a consultation
-- The prospect has a complex technical requirement
+- The prospect says they want to start or proceed
+- The prospect wants to book or speak with a person
+- The prospect has a complex technical requirement requiring human review
 - The prospect asks something you cannot answer confidently
-- The prospect is clearly qualified and ready to discuss next steps
-- The prospect explicitly asks to speak with a person
+- The prospect is clearly high-potential and ready for the next step
 
-When escalating, say naturally that a Sutor Digital team member can follow up. Do not claim that a booking or handoff has already been completed unless the backend confirms it.
+Do not call handoff_to_human just because the conversation is active.
+When you call it, provide a concise factual summary using only information actually learned in the conversation.
+Only tell the prospect that the handoff has been completed if the tool result says success=true.
+If the tool result says success=false, do not claim the team has been notified.
 
 Lead qualification:
-Internally think of the lead as one of:
+Internally classify the lead as:
 - early: just exploring / low information
 - potential: clear need but still missing important qualification details
 - high_potential: clear need, relevant budget/timeline or buying intent, and suitable for human follow-up
@@ -94,6 +114,35 @@ Safety and accuracy:
 
 Primary objective:
 Move the conversation naturally from enquiry → understanding → useful recommendation → qualified next step, while making the prospect feel helped rather than interrogated.`;
+
+const HANDOFF_TOOL = {
+  type: "function",
+  name: "handoff_to_human",
+  description:
+    "Create a real human follow-up request for a prospect who is ready for a quotation, wants to proceed, asks to speak with a person, or otherwise requires human follow-up.",
+  parameters: {
+    type: "object",
+    properties: {
+      reason: {
+        type: "string",
+        description: "A short reason explaining why human follow-up is appropriate."
+      },
+      lead_status: {
+        type: "string",
+        enum: ["early", "potential", "high_potential"],
+        description: "The current lead qualification level."
+      },
+      summary: {
+        type: "string",
+        description:
+          "A concise sales summary containing only facts learned from the conversation, such as business type, goal, target market, budget, timing, and requested service."
+      }
+    },
+    required: ["reason", "lead_status", "summary"],
+    additionalProperties: false
+  },
+  strict: true
+};
 
 function formatHistory(history: ConversationHistoryItem[]) {
   return history
@@ -111,37 +160,23 @@ function formatHistory(history: ConversationHistoryItem[]) {
 function extractResponseText(data: any): string {
   const output = Array.isArray(data?.output) ? data.output : [];
 
-  const text = output
+  return output
     .flatMap((item: any) => (Array.isArray(item?.content) ? item.content : []))
-    .filter((part: any) => part?.type === "output_text" && typeof part?.text === "string")
+    .filter(
+      (part: any) =>
+        part?.type === "output_text" && typeof part?.text === "string"
+    )
     .map((part: any) => part.text.trim())
     .filter(Boolean)
     .join("\n")
     .trim();
-
-  if (!text) {
-    throw new Error("OpenAI returned no usable text");
-  }
-
-  return text;
 }
 
-export async function generateAIReply({
-  history,
-  customerMessage
-}: GenerateAIReplyParams): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
-  }
-
-  const conversationHistory = formatHistory(history);
-
-  const input = conversationHistory
-    ? `Recent conversation:\n${conversationHistory}\n\nLatest customer message:\n${customerMessage}`
-    : `Latest customer message:\n${customerMessage}`;
-
+async function callOpenAI(
+  apiKey: string,
+  input: any[],
+  toolChoice: "auto" | "none"
+) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -152,7 +187,9 @@ export async function generateAIReply({
       model: "gpt-6-luna",
       reasoning: { effort: "none" },
       instructions: SYSTEM_INSTRUCTIONS,
-      input
+      input,
+      tools: [HANDOFF_TOOL],
+      tool_choice: toolChoice
     })
   });
 
@@ -167,5 +204,87 @@ export async function generateAIReply({
     throw new Error(message);
   }
 
-  return extractResponseText(data);
+  return data;
+}
+
+export async function generateAIReply({
+  history,
+  customerMessage,
+  executeHandoff
+}: GenerateAIReplyParams): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not configured");
+  }
+
+  const conversationHistory = formatHistory(history);
+
+  const prompt = conversationHistory
+    ? `Recent conversation:\n${conversationHistory}\n\nLatest customer message:\n${customerMessage}`
+    : `Latest customer message:\n${customerMessage}`;
+
+  const initialInput = [
+    {
+      role: "user",
+      content: prompt
+    }
+  ];
+
+  const firstResponse = await callOpenAI(apiKey, initialInput, "auto");
+
+  const functionCalls = (Array.isArray(firstResponse?.output)
+    ? firstResponse.output
+    : []
+  ).filter(
+    (item: any) =>
+      item?.type === "function_call" && item?.name === "handoff_to_human"
+  );
+
+  if (functionCalls.length === 0) {
+    const text = extractResponseText(firstResponse);
+
+    if (!text) {
+      throw new Error("OpenAI returned no usable text");
+    }
+
+    return text;
+  }
+
+  const functionOutputs: any[] = [];
+
+  for (const call of functionCalls) {
+    let result: HandoffToolResult;
+
+    try {
+      const args = JSON.parse(call.arguments ?? "{}") as HandoffToolArgs;
+      result = await executeHandoff(args);
+    } catch (error) {
+      result = {
+        success: false,
+        error: error instanceof Error ? error.message : "Handoff failed"
+      };
+    }
+
+    functionOutputs.push({
+      type: "function_call_output",
+      call_id: call.call_id,
+      output: JSON.stringify(result)
+    });
+  }
+
+  const followUpInput = [
+    ...initialInput,
+    ...(Array.isArray(firstResponse.output) ? firstResponse.output : []),
+    ...functionOutputs
+  ];
+
+  const finalResponse = await callOpenAI(apiKey, followUpInput, "none");
+  const finalText = extractResponseText(finalResponse);
+
+  if (!finalText) {
+    throw new Error("OpenAI returned no usable text after tool execution");
+  }
+
+  return finalText;
 }
