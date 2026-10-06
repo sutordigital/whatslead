@@ -148,6 +148,49 @@ app.get("/whatsapp-account-test", async (_req, res) => {
   }
 });
 
+app.get("/send-test", async (_req, res) => {
+  try {
+    const account = await getWhatsAppAccount("1389500287577115");
+
+    const to = "85295354610";
+
+    const response = await fetch(
+      `https://graph.facebook.com/v26.0/${account.phone_number_id}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${account.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to,
+          type: "text",
+          text: {
+            body: "WhatsLead outbound test ✅"
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    res.status(response.status).json({
+      ok: response.ok,
+      status: response.status,
+      metaResponse: data
+    });
+  } catch (error) {
+    console.error("Send test error:", error);
+
+    res.status(500).json({
+      ok: false,
+      error: String(error)
+    });
+  }
+});
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`WhatsLead is running on port ${PORT}`);
 });
