@@ -78,10 +78,17 @@ app.post("/webhooks/meta", async (req, res) => {
     if (conversationId) {
       try {
         const history = await getRecentConversationMessages(conversationId, 12);
+        const customerMessage = message.text?.body ?? "";
+        const priorHistory =
+          history.length > 0 &&
+          history[history.length - 1]?.direction === "inbound" &&
+          history[history.length - 1]?.content === customerMessage
+            ? history.slice(0, -1)
+            : history;
 
         replyText = await generateAIReply({
-          history,
-          customerMessage: message.text?.body ?? ""
+          history: priorHistory,
+          customerMessage
         });
       } catch (error) {
         console.error("AI reply generation failed:", error);
