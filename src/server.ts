@@ -7,6 +7,7 @@ import {
 } from "./services/messagePersistence.service.js";
 import { sendWhatsAppTextMessage } from "./services/whatsapp.service.js";
 import { generateAIReply } from "./services/ai.service.js";
+import { persistHumanHandoff } from "./services/handoff.service.js";
 
 const app = express();
 app.use(express.json());
@@ -57,6 +58,7 @@ app.post("/webhooks/meta", async (req, res) => {
     const account = await getWhatsAppAccount(phoneNumberId);
 
     let conversationId: string | null = null;
+    let contactId: string | null = null;
 
     try {
       const persistence = await persistIncomingTextMessage({
@@ -69,13 +71,15 @@ app.post("/webhooks/meta", async (req, res) => {
       });
 
       conversationId = persistence.conversationId;
+      contactId = persistence.contactId;
     } catch (error) {
       console.error("Message persistence failed:", error);
     }
 
-    let replyText = "Thanks for your message! 我哋已經收到你嘅查詢，團隊會盡快跟進你。";
+    let replyText =
+      "Thanks for your message! 我哋已經收到你嘅查詢，團隊會盡快跟進你。";
 
-    if (conversationId) {
+    if (conversationId && contactId) {
       try {
         const history = await getRecentConversationMessages(conversationId, 12);
         const customerMessage = message.text?.body ?? "";
@@ -86,9 +90,29 @@ app.post("/webhooks/meta", async (req, res) => {
             ? history.slice(0, -1)
             : history;
 
+        const activeConversationId = conversationId;
+        const activeContactId = contactId;
+
         replyText = await generateAIReply({
           history: priorHistory,
-          customerMessage
+          customerMessage,
+          executeHandoff: async ({ reason, lead_status, summary }) => {
+            const handoff = await persistHumanHandoff({
+              tenantId: account.tenant_id,
+              conversationId: activeConversationId,
+              contactId: activeContactId,
+              sourceMetaMessageId: message.id,
+              reason,
+              leadStatus: lead_status,
+              summary
+            });
+
+            return {
+              success: true,
+              handoffId: handoff.id,
+              status: handoff.status
+            };
+          }
         });
       } catch (error) {
         console.error("AI reply generation failed:", error);
