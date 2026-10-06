@@ -8,6 +8,7 @@ import {
 import { sendWhatsAppTextMessage } from "./services/whatsapp.service.js";
 import { generateAIReply } from "./services/ai.service.js";
 import { persistHumanHandoff } from "./services/handoff.service.js";
+import { notifyOwnerOfNewHandoff } from "./services/ownerNotification.service.js";
 
 const app = express();
 app.use(express.json());
@@ -110,6 +111,20 @@ app.post("/webhooks/meta", async (req, res) => {
               leadStatus: lead_status,
               summary
             });
+
+            if (handoff.created) {
+              try {
+                await notifyOwnerOfNewHandoff({
+                  phoneNumberId: account.phone_number_id,
+                  accessToken: account.access_token,
+                  leadStatus: lead_status,
+                  reason,
+                  summary
+                });
+              } catch (error) {
+                console.error("Owner handoff notification failed:", error);
+              }
+            }
 
             return {
               success: true,
