@@ -1,10 +1,12 @@
 import express from "express";
 import { getWhatsAppAccount } from "./services/whatsappAccount.service.js";
 import {
+  getRecentConversationMessages,
   persistIncomingTextMessage,
   persistOutboundTextMessage
 } from "./services/messagePersistence.service.js";
 import { sendWhatsAppTextMessage } from "./services/whatsapp.service.js";
+import { generateAIReply } from "./services/ai.service.js";
 
 const app = express();
 app.use(express.json());
@@ -71,7 +73,20 @@ app.post("/webhooks/meta", async (req, res) => {
       console.error("Message persistence failed:", error);
     }
 
-    const replyText = "WhatsLead received your message ✅";
+    let replyText = "Thanks for your message! 我哋已經收到你嘅查詢，團隊會盡快跟進你。";
+
+    if (conversationId) {
+      try {
+        const history = await getRecentConversationMessages(conversationId, 12);
+
+        replyText = await generateAIReply({
+          history,
+          customerMessage: message.text?.body ?? ""
+        });
+      } catch (error) {
+        console.error("AI reply generation failed:", error);
+      }
+    }
 
     const sendResult = await sendWhatsAppTextMessage(
       account.phone_number_id,
