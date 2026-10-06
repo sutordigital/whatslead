@@ -10,6 +10,7 @@ import { generateAIReply } from "./services/ai.service.js";
 import { persistHumanHandoff } from "./services/handoff.service.js";
 import { getTenantAISettings } from "./services/tenantAISettings.service.js";
 import { getConversationSendContext, pauseConversationAI } from "./services/conversation.service.js";
+import { createAIBooking } from "./services/booking.service.js";
 
 const app = express();
 app.use(express.json());
@@ -127,6 +128,32 @@ app.post("/webhooks/meta", async (req, res) => {
               success: true,
               handoffId: handoff.id,
               status: handoff.status
+            };
+          },
+          executeBooking: async ({
+            date,
+            time,
+            booking_type,
+            duration_minutes,
+            notes
+          }) => {
+            const booking = await createAIBooking({
+              tenantId: account.tenant_id,
+              conversationId: activeConversationId,
+              contactId: activeContactId,
+              bookingType: booking_type,
+              date,
+              time,
+              durationMinutes: duration_minutes,
+              notes
+            });
+
+            return {
+              success: true,
+              bookingId: booking.id,
+              status: booking.status,
+              scheduledAt: booking.scheduledAt,
+              created: booking.created
             };
           }
         });
