@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "../lib/supabase/client";
 
 export default function ConversationAIModeToggle({
@@ -13,6 +13,10 @@ export default function ConversationAIModeToggle({
   const [mode, setMode] = useState(initialMode);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   async function toggle() {
     const next = mode === "active" ? "paused" : "active";
