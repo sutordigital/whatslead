@@ -10,7 +10,7 @@ import { generateAIReply } from "./services/ai.service.js";
 import { persistHumanHandoff } from "./services/handoff.service.js";
 import { getTenantAISettings } from "./services/tenantAISettings.service.js";
 import { getConversationSendContext, pauseConversationAI } from "./services/conversation.service.js";
-import { createAIBooking } from "./services/booking.service.js";
+import { createAIBooking, findAvailableSlots } from "./services/booking.service.js";
 
 const app = express();
 app.use(express.json());
@@ -154,6 +154,24 @@ app.post("/webhooks/meta", async (req, res) => {
               status: booking.status,
               scheduledAt: booking.scheduledAt,
               created: booking.created
+            };
+          },
+          executeAvailability: async ({ date, duration_minutes }) => {
+            const availability = await findAvailableSlots({
+              tenantId: account.tenant_id,
+              date,
+              durationMinutes: duration_minutes,
+              limit: 4
+            });
+
+            return {
+              success: true,
+              date: availability.date,
+              timezone: availability.timezone,
+              durationMinutes: availability.durationMinutes,
+              available: availability.available,
+              slots: availability.slots,
+              reason: availability.reason
             };
           }
         });
