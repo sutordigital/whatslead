@@ -31,7 +31,6 @@ export async function persistIncomingTextMessage(
   try {
     await client.query("BEGIN");
 
-    // 1. Find or create contact
     const contactResult = await client.query(
       `
       insert into contacts (
@@ -53,7 +52,6 @@ export async function persistIncomingTextMessage(
 
     const contactId = contactResult.rows[0].id as string;
 
-    // 3. Find existing open conversation
     const conversationResult = await client.query(
       `
       select id, ai_mode
@@ -75,7 +73,6 @@ export async function persistIncomingTextMessage(
       conversationId = conversationResult.rows[0].id as string;
       aiMode = conversationResult.rows[0].ai_mode as string;
     } else {
-      // 4. Create new open conversation
       const newConversationResult = await client.query(
         `
         insert into conversations (
@@ -96,7 +93,6 @@ export async function persistIncomingTextMessage(
       aiMode = newConversationResult.rows[0].ai_mode as string;
     }
 
-    // 5. Insert inbound message
     await client.query(
       `
       insert into messages (
@@ -116,12 +112,10 @@ export async function persistIncomingTextMessage(
         params.tenantId,
         conversationId,
         params.metaMessageId,
-        params.content,
-        params.senderType ?? "ai"
+        params.content
       ]
     );
 
-    // 7. Update conversation.last_message_at
     await client.query(
       `
       update conversations
@@ -174,7 +168,8 @@ export async function persistOutboundTextMessage(
         params.tenantId,
         params.conversationId,
         params.metaMessageId,
-        params.content
+        params.content,
+        params.senderType ?? "ai"
       ]
     );
 
@@ -196,7 +191,6 @@ export async function persistOutboundTextMessage(
     client.release();
   }
 }
-
 
 export interface ConversationHistoryItem {
   sender_type: string;
