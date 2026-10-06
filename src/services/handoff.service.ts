@@ -15,6 +15,7 @@ export interface PersistHumanHandoffParams {
 export interface PersistHumanHandoffResult {
   id: string;
   status: string;
+  created: boolean;
 }
 
 export async function persistHumanHandoff(
@@ -25,7 +26,7 @@ export async function persistHumanHandoff(
   try {
     await client.query("BEGIN");
 
-    const existing = await client.query(
+    const existingPending = await client.query(
       `
       select id, status
       from public.handoffs
@@ -39,7 +40,7 @@ export async function persistHumanHandoff(
       [params.tenantId, params.conversationId]
     );
 
-    if (existing.rowCount && existing.rows[0]) {
+    if (existingPending.rowCount && existingPending.rows[0]) {
       const updated = await client.query(
         `
         update public.handoffs
@@ -54,12 +55,54 @@ export async function persistHumanHandoff(
           params.reason,
           params.leadStatus,
           params.summary,
-          existing.rows[0].id
+          existingPending.rows[0].id
         ]
       );
 
       await client.query("COMMIT");
-      return updated.rows[0] as PersistHumanHandoffResult;
+
+      return {
+        ...(updated.rows[0] as { id: string; status: string }),
+        created: false
+      };
+    }
+
+    const existingSource = await client.query(
+      `
+      select id, status
+      from public.handoffs
+      where source_meta_message_id = $1
+      limit 1
+      for update
+      `,
+      [params.sourceMetaMessageId]
+    );
+
+    if (existingSource.rowCount && existingSource.rows[0]) {
+      const updated = await client.query(
+        `
+        update public.handoffs
+        set reason = $1,
+            lead_status = $2,
+            summary = $3,
+            updated_at = now()
+        where id = $4
+        returning id, status
+        `,
+        [
+          params.reason,
+          params.leadStatus,
+          params.summary,
+          existingSource.rows[0].id
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      return {
+        ...(updated.rows[0] as { id: string; status: string }),
+        created: false
+      };
     }
 
     const created = await client.query(
@@ -75,12 +118,6 @@ export async function persistHumanHandoff(
         status
       )
       values ($1, $2, $3, $4, $5, $6, $7, 'pending')
-      on conflict (source_meta_message_id)
-      do update set
-        reason = excluded.reason,
-        lead_status = excluded.lead_status,
-        summary = excluded.summary,
-        updated_at = now()
       returning id, status
       `,
       [
@@ -95,7 +132,11 @@ export async function persistHumanHandoff(
     );
 
     await client.query("COMMIT");
-    return created.rows[0] as PersistHumanHandoffResult;
+
+    return {
+      ...(created.rows[0] as { id: string; status: string }),
+      created: true
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
