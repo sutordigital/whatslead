@@ -220,7 +220,7 @@ app.get("/send-test", async (_req, res) => {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${account.access_token}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
