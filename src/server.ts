@@ -105,6 +105,8 @@ app.post("/webhooks/meta", async (req, res) => {
       from,
       "WhatsLead received your message ✅"
     );
+
+    console.log("Auto reply sent");
   } catch (error) {
     console.error("Webhook processing failed:", error);
   }
