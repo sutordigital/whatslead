@@ -16,10 +16,7 @@ app.use(express.json());
 const PORT = Number(process.env.PORT) || 3000;
 
 app.get("/", (_req, res) => {
-  res.json({
-    app: "WhatsLead",
-    status: "running"
-  });
+  res.json({ app: "WhatsLead", status: "running" });
 });
 
 app.get("/health", (_req, res) => {
@@ -56,14 +53,13 @@ app.post("/webhooks/meta", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    // Acknowledge Meta immediately so webhook delivery is not blocked by
-    // database, OpenAI, handoff, or outbound WhatsApp processing.
     res.sendStatus(200);
 
     const account = await getWhatsAppAccount(phoneNumberId);
 
     let conversationId: string | null = null;
     let contactId: string | null = null;
+    let conversationAIMode: string | null = null;
 
     try {
       const persistence = await persistIncomingTextMessage({
@@ -77,8 +73,14 @@ app.post("/webhooks/meta", async (req, res) => {
 
       conversationId = persistence.conversationId;
       contactId = persistence.contactId;
+      conversationAIMode = persistence.aiMode;
     } catch (error) {
       console.error("Message persistence failed:", error);
+    }
+
+    if (conversationAIMode === "paused") {
+      console.log("AI replies paused for conversation", conversationId);
+      return;
     }
 
     let replyText =
@@ -87,7 +89,7 @@ app.post("/webhooks/meta", async (req, res) => {
     const aiSettings = await getTenantAISettings(account.tenant_id);
 
     if (aiSettings?.ai_enabled === false) {
-      console.log(`AI replies disabled for tenant ${account.tenant_id}`);
+      console.log("AI replies disabled for tenant", account.tenant_id);
       return;
     }
 
@@ -167,5 +169,5 @@ app.post("/webhooks/meta", async (req, res) => {
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`WhatsLead is running on port ${PORT}`);
+  console.log("WhatsLead is running on port", PORT);
 });
