@@ -55,6 +55,10 @@ app.post("/webhooks/meta", async (req, res) => {
       return res.sendStatus(200);
     }
 
+    // Acknowledge Meta immediately so webhook delivery is not blocked by
+    // database, OpenAI, handoff, or outbound WhatsApp processing.
+    res.sendStatus(200);
+
     const account = await getWhatsAppAccount(phoneNumberId);
 
     let conversationId: string | null = null;
@@ -141,7 +145,7 @@ app.post("/webhooks/meta", async (req, res) => {
       }
     }
 
-    return res.sendStatus(200);
+    return;
   } catch (error) {
     console.error("Webhook processing failed:", error);
 
