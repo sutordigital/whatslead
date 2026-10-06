@@ -183,6 +183,7 @@ async function callOpenAI(
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json"
     },
+    signal: AbortSignal.timeout(10000),
     body: JSON.stringify({
       model: "gpt-6-luna",
       reasoning: { effort: "none" },
