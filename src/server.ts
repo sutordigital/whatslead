@@ -1,6 +1,7 @@
 import express from "express";
 import { getWhatsAppAccount } from "./services/whatsappAccount.service.js";
 import { sendWhatsAppTextMessage } from "./services/whatsapp.service.js";
+import { persistIncomingTextMessage } from "./services/messagePersistence.service.js";
 
 const app = express();
 app.use(express.json());
@@ -49,6 +50,19 @@ app.post("/webhooks/meta", async (req, res) => {
     }
 
     const account = await getWhatsAppAccount(phoneNumberId);
+
+    try {
+      await persistIncomingTextMessage({
+        tenantId: account.tenant_id,
+        whatsappAccountId: account.id,
+        whatsappId: message.from,
+        displayName: value?.contacts?.[0]?.profile?.name ?? null,
+        metaMessageId: message.id,
+        content: message.text?.body ?? ""
+      });
+    } catch (error) {
+      console.error("Message persistence failed:", error);
+    }
 
     await sendWhatsAppTextMessage(
       account.phone_number_id,
