@@ -38,12 +38,29 @@ export type BookingToolResult = {
   error?: string;
 };
 
+export type AvailabilityToolArgs = {
+  date: string;
+  duration_minutes: number;
+};
+
+export type AvailabilityToolResult = {
+  success: boolean;
+  date?: string;
+  timezone?: string;
+  durationMinutes?: number;
+  available?: boolean;
+  slots?: string[];
+  reason?: string;
+  error?: string;
+};
+
 type GenerateAIReplyParams = {
   history: ConversationHistoryItem[];
   customerMessage: string;
   settings: TenantAISettings | null;
   executeHandoff: (args: HandoffToolArgs) => Promise<HandoffToolResult>;
   executeBooking: (args: BookingToolArgs) => Promise<BookingToolResult>;
+  executeAvailability: (args: AvailabilityToolArgs) => Promise<AvailabilityToolResult>;
 };
 
 const DEFAULT_SUTOR_CONTEXT = {
@@ -93,12 +110,15 @@ Recommendation behaviour:
 5. If information is uncertain or not configured, say a human team member can confirm.
 
 Booking:
-Use the create_booking tool only when the prospect has clearly agreed to a specific future date and time for a consultation, call, or meeting.
-- If the date or time is missing or ambiguous, ask for it instead of calling the tool.
-- Never invent availability.
+- If the prospect asks what times are available on a specific date, use check_booking_availability before suggesting times.
+- Only suggest time slots returned by check_booking_availability.
+- Use the create_booking tool only when the prospect has clearly agreed to a specific future date and time for a consultation, call, or meeting.
+- If the date is missing or ambiguous, ask for the date first.
+- Never invent availability or claim a slot is free without a successful backend check or successful booking creation.
 - Bookings created by this tool are pending confirmation, not confirmed appointments.
 - If the customer asks for "tomorrow", "next Monday", or another relative date, resolve it using the current Hong Kong date supplied below.
 - Only tell the prospect the booking request was created if the tool result says success=true.
+- If create_booking fails because the requested time is unavailable or outside configured hours, explain briefly and ask for another time or offer to check a specific date.
 - When successful, make clear that the booking is pending confirmation unless a human has explicitly confirmed it.
 
 Human escalation:
@@ -130,6 +150,31 @@ Safety and accuracy:
 
 Primary objective:
 Move the conversation naturally from enquiry → understanding → useful recommendation → qualified next step, while making the prospect feel helped rather than interrogated.`;
+
+const AVAILABILITY_TOOL = {
+  type: "function",
+  name: "check_booking_availability",
+  description:
+    "Check real booking availability for a specific date and return valid open time slots.",
+  parameters: {
+    type: "object",
+    properties: {
+      date: {
+        type: "string",
+        description: "Date to check in YYYY-MM-DD format, interpreted in Asia/Hong_Kong."
+      },
+      duration_minutes: {
+        type: "integer",
+        minimum: 15,
+        maximum: 480,
+        description: "Required appointment duration in minutes. Use 30 when not specified."
+      }
+    },
+    required: ["date", "duration_minutes"],
+    additionalProperties: false
+  },
+  strict: true
+};
 
 const BOOKING_TOOL = {
   type: "function",
@@ -341,7 +386,7 @@ async function callOpenAI(
       reasoning: { effort: "none" },
       instructions,
       input,
-      tools: [HANDOFF_TOOL, BOOKING_TOOL],
+      tools: [HANDOFF_TOOL, BOOKING_TOOL, AVAILABILITY_TOOL],
       tool_choice: toolChoice
     })
   });
@@ -365,7 +410,8 @@ export async function generateAIReply({
   customerMessage,
   settings,
   executeHandoff,
-  executeBooking
+  executeBooking,
+  executeAvailability
 }: GenerateAIReplyParams): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -400,7 +446,11 @@ export async function generateAIReply({
   ).filter(
     (item: any) =>
       item?.type === "function_call" &&
-      (item?.name === "handoff_to_human" || item?.name === "create_booking")
+      (
+        item?.name === "handoff_to_human" ||
+        item?.name === "create_booking" ||
+        item?.name === "check_booking_availability"
+      )
   );
 
   if (functionCalls.length === 0) {
@@ -416,12 +466,15 @@ export async function generateAIReply({
   const functionOutputs: any[] = [];
 
   for (const call of functionCalls) {
-    let result: HandoffToolResult | BookingToolResult;
+    let result: HandoffToolResult | BookingToolResult | AvailabilityToolResult;
 
     try {
       if (call.name === "create_booking") {
         const args = JSON.parse(call.arguments ?? "{}") as BookingToolArgs;
         result = await executeBooking(args);
+      } else if (call.name === "check_booking_availability") {
+        const args = JSON.parse(call.arguments ?? "{}") as AvailabilityToolArgs;
+        result = await executeAvailability(args);
       } else {
         const args = JSON.parse(call.arguments ?? "{}") as HandoffToolArgs;
         result = await executeHandoff(args);
