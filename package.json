@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
+    "build": "rm -rf dist && esbuild src/server.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/server.cjs",
+    "postbuild": "rm -rf node_modules",
+    "start": "node dist/server.cjs"
   },
   "dependencies": {
+    "esbuild": "^0.25.0",
     "express": "^5.1.0",
-    "openai": "^4.2.0",
     "pg": "^8.16.1"
   },
   "devDependencies": {
