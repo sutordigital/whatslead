@@ -1,4 +1,5 @@
 import express from "express";
+import { db } from "./db.js";
 
 const app = express();
 
@@ -31,6 +32,23 @@ app.get("/webhooks/meta", (req, res) => {
   }
 
   return res.sendStatus(403);
+});
+
+app.get("/db-test", async (_req, res) => {
+  try {
+    const result = await db.query("select now() as server_time");
+
+    res.json({
+      connected: true,
+      serverTime: result.rows[0].server_time
+    });
+  } catch (error) {
+    console.error("DB test failed:", error);
+
+    res.status(500).json({
+      connected: false
+    });
+  }
 });
 
 app.listen(PORT, "0.0.0.0", () => {
