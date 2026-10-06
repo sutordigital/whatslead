@@ -12,6 +12,7 @@ export interface PersistIncomingTextMessageParams {
 export interface PersistIncomingTextMessageResult {
   contactId: string;
   conversationId: string;
+  aiMode: string;
 }
 
 export interface PersistOutboundTextMessageParams {
@@ -54,7 +55,7 @@ export async function persistIncomingTextMessage(
     // 3. Find existing open conversation
     const conversationResult = await client.query(
       `
-      select id
+      select id, ai_mode
       from conversations
       where tenant_id = $1
         and contact_id = $2
@@ -67,9 +68,11 @@ export async function persistIncomingTextMessage(
     );
 
     let conversationId: string;
+    let aiMode: string;
 
     if (conversationResult.rowCount && conversationResult.rows[0]) {
       conversationId = conversationResult.rows[0].id as string;
+      aiMode = conversationResult.rows[0].ai_mode as string;
     } else {
       // 4. Create new open conversation
       const newConversationResult = await client.query(
@@ -83,12 +86,13 @@ export async function persistIncomingTextMessage(
           last_message_at
         )
         values ($1, $2, $3, 'open', 'active', now())
-        returning id
+        returning id, ai_mode
         `,
         [params.tenantId, contactId, params.whatsappAccountId]
       );
 
       conversationId = newConversationResult.rows[0].id as string;
+      aiMode = newConversationResult.rows[0].ai_mode as string;
     }
 
     // 5. Insert inbound message
@@ -130,7 +134,8 @@ export async function persistIncomingTextMessage(
 
     return {
       contactId,
-      conversationId
+      conversationId,
+      aiMode
     };
   } catch (error) {
     await client.query("ROLLBACK");
