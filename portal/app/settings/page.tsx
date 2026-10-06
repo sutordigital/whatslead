@@ -1,5 +1,6 @@
 import PortalShell from "../../components/PortalShell";
 import AISettingsForm from "../../components/AISettingsForm";
+import BookingSettingsForm from "../../components/BookingSettingsForm";
 import { requireTenant } from "../../lib/tenant";
 
 export default async function SettingsPage(){
@@ -11,12 +12,19 @@ export default async function SettingsPage(){
     .eq("tenant_id",tenantId)
     .maybeSingle();
 
-  const { data: account }=await supabase
-    .from("whatsapp_accounts")
-    .select("display_number,status,waba_id,phone_number_id")
-    .eq("tenant_id",tenantId)
-    .limit(1)
-    .maybeSingle();
+  const [{ data: account }, { data: bookingSettings }] = await Promise.all([
+    supabase
+      .from("whatsapp_accounts")
+      .select("display_number,status,waba_id,phone_number_id")
+      .eq("tenant_id",tenantId)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("tenant_booking_settings")
+      .select("*")
+      .eq("tenant_id",tenantId)
+      .maybeSingle()
+  ]);
 
   return <PortalShell>
     <h1>設定</h1>
@@ -34,5 +42,8 @@ export default async function SettingsPage(){
 
     <h2>AI 設定</h2>
     <AISettingsForm tenantId={tenantId} initial={settings}/>
+
+    <h2>預約設定</h2>
+    <BookingSettingsForm tenantId={tenantId} initial={bookingSettings}/>
   </PortalShell>;
 }
