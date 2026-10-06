@@ -11,6 +11,7 @@ export default function HumanReplyComposer({
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [debug, setDebug] = useState("");
   const router = useRouter();
 
   async function submit(event: FormEvent) {
@@ -21,6 +22,7 @@ export default function HumanReplyComposer({
 
     setSending(true);
     setError("");
+    setDebug("");
 
     try {
       const response = await fetch(
@@ -38,13 +40,17 @@ export default function HumanReplyComposer({
 
       if (!response.ok) {
         setError(result?.error || "傳送失敗");
+        if (result?.debug) {
+          setDebug(JSON.stringify(result.debug, null, 2));
+        }
         return;
       }
 
       setText("");
       router.refresh();
-    } catch {
+    } catch (error) {
       setError("傳送失敗，請再試一次。");
+      setDebug(error instanceof Error ? error.message : String(error));
     } finally {
       setSending(false);
     }
@@ -76,6 +82,18 @@ export default function HumanReplyComposer({
       </div>
 
       {error ? <div>錯誤：{error}</div> : null}
+      {debug ? (
+        <pre style={{
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          padding: 12,
+          background: "#f5f5f5",
+          borderRadius: 8,
+          fontSize: 12
+        }}>
+          {debug}
+        </pre>
+      ) : null}
     </form>
   );
 }
