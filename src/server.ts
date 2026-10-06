@@ -8,6 +8,10 @@ app.use(express.json());
 
 const PORT = Number(process.env.PORT) || 3000;
 
+let webhookDebug: any = {
+  status: "waiting"
+};
+
 async function sendWhatsAppMessage(
   phoneNumberId: string,
   accessToken: string,
@@ -74,42 +78,69 @@ app.get("/webhooks/meta", (req, res) => {
 app.post("/webhooks/meta", async (req, res) => {
   res.sendStatus(200);
 
+  webhookDebug = {
+    status: "received",
+    time: new Date().toISOString()
+  };
+
   try {
     const value = req.body?.entry?.[0]?.changes?.[0]?.value;
 
     const message = value?.messages?.[0];
     const phoneNumberId = value?.metadata?.phone_number_id;
 
-    if (!message || !phoneNumberId) {
+    webhookDebug.hasValue = Boolean(value);
+    webhookDebug.hasMessage = Boolean(message);
+    webhookDebug.phoneNumberId = phoneNumberId ?? null;
+    webhookDebug.messageType = message?.type ?? null;
+
+    if (message?.from) {
+      webhookDebug.from = "****" + message.from.slice(-4);
+    }
+
+    if (!message) {
+      webhookDebug.status = "no_message_event";
+      return;
+    }
+
+    if (!phoneNumberId) {
+      webhookDebug.status = "missing_phone_number_id";
       return;
     }
 
     if (message.type !== "text") {
+      webhookDebug.status = "non_text_message";
       return;
     }
 
-    const from = message.from;
-    const incomingText = message.text?.body;
-
-    console.log("Incoming WhatsApp:", {
-      phoneNumberId,
-      from,
-      incomingText
-    });
+    webhookDebug.incomingText = message.text?.body ?? null;
+    webhookDebug.status = "looking_up_account";
 
     const account = await getWhatsAppAccount(phoneNumberId);
+
+    webhookDebug.accountFound = true;
+    webhookDebug.tokenLoaded = Boolean(account.access_token);
+    webhookDebug.status = "sending_reply";
 
     await sendWhatsAppMessage(
       account.phone_number_id,
       account.access_token,
-      from,
+      message.from,
       "WhatsLead received your message ✅"
     );
 
-    console.log("Auto reply sent");
+    webhookDebug.status = "reply_sent";
   } catch (error) {
+    webhookDebug.status = "error";
+    webhookDebug.error =
+      error instanceof Error ? error.message : String(error);
+
     console.error("Webhook processing failed:", error);
   }
+});
+
+app.get("/debug/webhook-state", (_req, res) => {
+  res.json(webhookDebug);
 });
 
 app.get("/db-test", async (_req, res) => {
