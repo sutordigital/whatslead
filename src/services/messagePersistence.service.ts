@@ -9,9 +9,21 @@ export interface PersistIncomingTextMessageParams {
   content: string;
 }
 
+export interface PersistIncomingTextMessageResult {
+  contactId: string;
+  conversationId: string;
+}
+
+export interface PersistOutboundTextMessageParams {
+  tenantId: string;
+  conversationId: string;
+  metaMessageId: string;
+  content: string;
+}
+
 export async function persistIncomingTextMessage(
   params: PersistIncomingTextMessageParams
-): Promise<void> {
+): Promise<PersistIncomingTextMessageResult> {
   const client = await db.connect();
 
   try {
@@ -112,6 +124,61 @@ export async function persistIncomingTextMessage(
       where id = $1
       `,
       [conversationId]
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      contactId,
+      conversationId
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function persistOutboundTextMessage(
+  params: PersistOutboundTextMessageParams
+): Promise<void> {
+  const client = await db.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `
+      insert into messages (
+        tenant_id,
+        conversation_id,
+        meta_message_id,
+        direction,
+        sender_type,
+        message_type,
+        content,
+        status
+      )
+      values ($1, $2, $3, 'outbound', 'ai', 'text', $4, 'sent')
+      on conflict (meta_message_id) do nothing
+      `,
+      [
+        params.tenantId,
+        params.conversationId,
+        params.metaMessageId,
+        params.content
+      ]
+    );
+
+    await client.query(
+      `
+      update conversations
+      set last_message_at = now(),
+          updated_at = now()
+      where id = $1
+      `,
+      [params.conversationId]
     );
 
     await client.query("COMMIT");
