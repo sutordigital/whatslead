@@ -1,4 +1,5 @@
 import PortalShell from "../../../components/PortalShell";
+import ConversationAIModeToggle from "../../../components/ConversationAIModeToggle";
 import { requireTenant } from "../../../lib/tenant";
 import { notFound } from "next/navigation";
 
@@ -38,6 +39,13 @@ export default async function ConversationDetail({params}:{params:Promise<{id:st
     <p className="muted">
       {contact?.phone_number} · {conversationStatus(conversation.status)} · AI {aiMode(conversation.ai_mode)}
     </p>
+
+    <ConversationAIModeToggle
+      conversationId={conversation.id}
+      initialMode={conversation.ai_mode}
+    />
+
+    <div style={{height:16}} />
 
     <div className="messages">
       {messages?.map(m=>
