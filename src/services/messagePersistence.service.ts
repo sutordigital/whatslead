@@ -20,6 +20,7 @@ export interface PersistOutboundTextMessageParams {
   conversationId: string;
   metaMessageId: string;
   content: string;
+  senderType?: "ai" | "human";
 }
 
 export async function persistIncomingTextMessage(
@@ -115,7 +116,8 @@ export async function persistIncomingTextMessage(
         params.tenantId,
         conversationId,
         params.metaMessageId,
-        params.content
+        params.content,
+        params.senderType ?? "ai"
       ]
     );
 
@@ -165,7 +167,7 @@ export async function persistOutboundTextMessage(
         content,
         status
       )
-      values ($1, $2, $3, 'outbound', 'ai', 'text', $4, 'sent')
+      values ($1, $2, $3, 'outbound', $5, 'text', $4, 'sent')
       on conflict (meta_message_id) do nothing
       `,
       [
