@@ -371,3 +371,23 @@ pre{
   .form-grid-2{grid-template-columns:1fr}
   .compact-select{width:100%}
 }
+
+
+.availability-days{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.day-toggle{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--surface-soft);
+  font-size:13px;
+  font-weight:650;
+  color:#555a5e;
+}
+.day-toggle input{accent-color:var(--accent)}
