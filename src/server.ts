@@ -143,6 +143,34 @@ app.get("/debug/webhook-state", (_req, res) => {
   res.json(webhookDebug);
 });
 
+app.get("/debug/latest-webhook", async (_req, res) => {
+  try {
+    const result = await db.query(`
+      select
+        id,
+        received_at,
+        event_type,
+        phone_number_id,
+        message_from,
+        message_type,
+        message_text
+      from public.webhook_debug_events
+      order by id desc
+      limit 1
+    `);
+
+    res.json({
+      found: result.rowCount !== 0,
+      event: result.rows[0] ?? null
+    });
+  } catch (error) {
+    res.status(500).json({
+      found: false,
+      error: String(error)
+    });
+  }
+});
+
 app.get("/db-test", async (_req, res) => {
   try {
     const result = await db.query("select now() as server_time");
@@ -192,7 +220,7 @@ app.get("/send-test", async (_req, res) => {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${account.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
