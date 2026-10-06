@@ -9,6 +9,7 @@ import { sendWhatsAppTextMessage } from "./services/whatsapp.service.js";
 import { generateAIReply } from "./services/ai.service.js";
 import { persistHumanHandoff } from "./services/handoff.service.js";
 import { getTenantAISettings } from "./services/tenantAISettings.service.js";
+import { getConversationSendContext, pauseConversationAI } from "./services/conversation.service.js";
 
 const app = express();
 app.use(express.json());
@@ -165,6 +166,68 @@ app.post("/webhooks/meta", async (req, res) => {
     }
 
     return;
+  }
+});
+
+
+app.post("/internal/conversations/:id/messages", async (req, res) => {
+  try {
+    const expectedSecret = process.env.PORTAL_API_SECRET;
+    const providedSecret = req.header("x-portal-secret");
+
+    if (!expectedSecret || !providedSecret || providedSecret !== expectedSecret) {
+      return res.sendStatus(401);
+    }
+
+    const conversationId = req.params.id;
+    const tenantId =
+      typeof req.body?.tenant_id === "string" ? req.body.tenant_id : "";
+    const text =
+      typeof req.body?.text === "string" ? req.body.text.trim() : "";
+
+    if (!tenantId || !text) {
+      return res.status(400).json({ error: "tenant_id and text are required" });
+    }
+
+    if (text.length > 4000) {
+      return res.status(400).json({ error: "Message is too long" });
+    }
+
+    const context = await getConversationSendContext(conversationId, tenantId);
+
+    await pauseConversationAI(conversationId, tenantId);
+
+    const sendResult = await sendWhatsAppTextMessage(
+      context.phoneNumberId,
+      context.accessToken,
+      context.contactWhatsappId,
+      text
+    );
+
+    const outboundMetaMessageId = sendResult?.messages?.[0]?.id;
+
+    if (!outboundMetaMessageId) {
+      throw new Error("Meta did not return an outbound message id");
+    }
+
+    await persistOutboundTextMessage({
+      tenantId,
+      conversationId,
+      metaMessageId: outboundMetaMessageId,
+      content: text,
+      senderType: "human"
+    });
+
+    return res.status(200).json({
+      success: true,
+      meta_message_id: outboundMetaMessageId,
+      ai_mode: "paused"
+    });
+  } catch (error) {
+    console.error("Human outbound message failed:", error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to send message"
+    });
   }
 });
 
