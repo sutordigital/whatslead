@@ -56,14 +56,27 @@ export async function POST(
 
     if (!apiUrl || !portalSecret) {
       return NextResponse.json(
-        { error: "Portal 尚未完成後端連接設定" },
+        {
+          error: "Portal 尚未完成後端連接設定",
+          debug: {
+            hasApiUrl: Boolean(apiUrl),
+            hasPortalSecret: Boolean(portalSecret)
+          }
+        },
         { status: 500 }
       );
     }
 
-    const response = await fetch(
-      `${apiUrl.replace(/\/$/, "")}/internal/conversations/${id}/messages`,
-      {
+    const endpoint =
+      apiUrl.replace(/\/$/, "") +
+      "/internal/conversations/" +
+      id +
+      "/messages";
+
+    let response: Response;
+
+    try {
+      response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -74,14 +87,51 @@ export async function POST(
           text
         }),
         cache: "no-store"
-      }
-    );
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: "無法連接 WhatsLead 後端",
+          debug: {
+            endpoint,
+            detail: error instanceof Error ? error.message : String(error)
+          }
+        },
+        { status: 502 }
+      );
+    }
 
-    const result = await response.json().catch(() => ({}));
+    const rawBody = await response.text();
+
+    let result: any = {};
+    try {
+      result = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      result = {};
+    }
 
     if (!response.ok) {
+      let message = result?.error;
+
+      if (!message) {
+        if (response.status === 401) {
+          message = "後端認證失敗：請檢查兩邊 Portal Secret 是否完全一致";
+        } else if (response.status === 404) {
+          message = "後端找不到真人回覆 API：請確認 SiteGround 已部署最新 main";
+        } else {
+          message = "後端傳送失敗";
+        }
+      }
+
       return NextResponse.json(
-        { error: result?.error || "傳送失敗" },
+        {
+          error: message,
+          debug: {
+            backendStatus: response.status,
+            endpoint,
+            backendBody: rawBody.slice(0, 500)
+          }
+        },
         { status: response.status }
       );
     }
@@ -89,6 +139,15 @@ export async function POST(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Portal human message route failed:", error);
-    return NextResponse.json({ error: "傳送失敗" }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        error: "Portal 傳送流程發生錯誤",
+        debug: {
+          detail: error instanceof Error ? error.message : String(error)
+        }
+      },
+      { status: 500 }
+    );
   }
 }
