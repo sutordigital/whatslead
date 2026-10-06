@@ -189,3 +189,34 @@ export async function persistOutboundTextMessage(
     client.release();
   }
 }
+
+
+export interface ConversationHistoryItem {
+  sender_type: string;
+  direction: string;
+  content: string;
+}
+
+export async function getRecentConversationMessages(
+  conversationId: string,
+  limit = 12
+): Promise<ConversationHistoryItem[]> {
+  const safeLimit = Math.max(1, Math.min(limit, 50));
+
+  const result = await db.query(
+    `
+    select sender_type, direction, content
+    from (
+      select sender_type, direction, content, created_at
+      from messages
+      where conversation_id = $1
+      order by created_at desc
+      limit $2
+    ) recent_messages
+    order by created_at asc
+    `,
+    [conversationId, safeLimit]
+  );
+
+  return result.rows as ConversationHistoryItem[];
+}
