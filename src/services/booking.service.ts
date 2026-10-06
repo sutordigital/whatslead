@@ -91,22 +91,22 @@ function minutesToTime(total: number) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-function weekdayKey(date: string): keyof Pick<
-  BookingSettings,
+type BookingDayKey =
   | "monday_enabled"
   | "tuesday_enabled"
   | "wednesday_enabled"
   | "thursday_enabled"
   | "friday_enabled"
   | "saturday_enabled"
-  | "sunday_enabled"
-> {
+  | "sunday_enabled";
+
+function weekdayKey(date: string): BookingDayKey {
   const weekday = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Hong_Kong",
     weekday: "long"
   }).format(new Date(`${date}T12:00:00+08:00`));
 
-  return `${weekday.toLowerCase()}_enabled` as ReturnType<typeof weekdayKey>;
+  return `${weekday.toLowerCase()}_enabled` as BookingDayKey;
 }
 
 async function getBookingSettings(
