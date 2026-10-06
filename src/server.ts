@@ -8,6 +8,42 @@ app.use(express.json());
 
 const PORT = Number(process.env.PORT) || 3000;
 
+async function sendWhatsAppMessage(
+  phoneNumberId: string,
+  accessToken: string,
+  to: string,
+  text: string
+) {
+  const response = await fetch(
+    `https://graph.facebook.com/v26.0/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "text",
+        text: {
+          body: text
+        }
+      })
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error("Meta send failed:", data);
+    throw new Error("Meta send failed");
+  }
+
+  return data;
+}
+
 app.get("/", (_req, res) => {
   res.json({
     app: "WhatsLead",
@@ -33,6 +69,45 @@ app.get("/webhooks/meta", (req, res) => {
   }
 
   return res.sendStatus(403);
+});
+
+app.post("/webhooks/meta", async (req, res) => {
+  res.sendStatus(200);
+
+  try {
+    const value = req.body?.entry?.[0]?.changes?.[0]?.value;
+
+    const message = value?.messages?.[0];
+    const phoneNumberId = value?.metadata?.phone_number_id;
+
+    if (!message || !phoneNumberId) {
+      return;
+    }
+
+    if (message.type !== "text") {
+      return;
+    }
+
+    const from = message.from;
+    const incomingText = message.text?.body;
+
+    console.log("Incoming WhatsApp:", {
+      phoneNumberId,
+      from,
+      incomingText
+    });
+
+    const account = await getWhatsAppAccount(phoneNumberId);
+
+    await sendWhatsAppMessage(
+      account.phone_number_id,
+      account.access_token,
+      from,
+      "WhatsLead received your message ✅"
+    );
+  } catch (error) {
+    console.error("Webhook processing failed:", error);
+  }
 });
 
 app.get("/db-test", async (_req, res) => {
