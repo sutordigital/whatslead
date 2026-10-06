@@ -93,7 +93,7 @@ export async function persistIncomingTextMessage(
         status
       )
       values ($1, $2, $3, 'inbound', 'customer', 'text', $4, 'received')
-      on conflict (tenant_id, meta_message_id) do nothing
+      on conflict (meta_message_id) do nothing
       `,
       [
         params.tenantId,
