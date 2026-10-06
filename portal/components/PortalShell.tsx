@@ -7,6 +7,7 @@ const navItems = [
   { href: "/dashboard", label: "總覽" },
   { href: "/conversations", label: "對話紀錄" },
   { href: "/leads", label: "潛在客戶" },
+  { href: "/bookings", label: "預約" },
   { href: "/settings", label: "設定" }
 ];
 
