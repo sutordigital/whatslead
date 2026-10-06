@@ -28,7 +28,19 @@ export async function sendWhatsAppTextMessage(
 
   if (!response.ok) {
     console.error("Meta send failed:", data);
-    throw new Error("Meta send failed");
+
+    const metaMessage =
+      typeof data?.error?.message === "string"
+        ? data.error.message
+        : "Unknown Meta API error";
+    const metaCode =
+      data?.error?.code !== undefined ? String(data.error.code) : "unknown";
+    const metaType =
+      typeof data?.error?.type === "string" ? data.error.type : "unknown";
+
+    throw new Error(
+      `Meta send failed (code ${metaCode}, type ${metaType}): ${metaMessage}`
+    );
   }
 
   return data;
