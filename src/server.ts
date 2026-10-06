@@ -171,6 +171,43 @@ app.get("/debug/latest-webhook", async (_req, res) => {
   }
 });
 
+app.get("/debug/insert-test", async (_req, res) => {
+  try {
+    const result = await db.query(
+      `
+      insert into public.webhook_debug_events (
+        event_type,
+        phone_number_id,
+        message_from,
+        message_type,
+        message_text,
+        raw_payload
+      )
+      values ($1,$2,$3,$4,$5,$6)
+      returning id
+      `,
+      [
+        "manual_test",
+        "test_phone",
+        "test_sender",
+        "text",
+        "hello",
+        { source: "manual" }
+      ]
+    );
+
+    res.json({
+      inserted: true,
+      id: result.rows[0].id
+    });
+  } catch (error) {
+    res.status(500).json({
+      inserted: false,
+      error: String(error)
+    });
+  }
+});
+
 app.get("/db-test", async (_req, res) => {
   try {
     const result = await db.query("select now() as server_time");
