@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import AuthShell from "../../../components/AuthShell";
 import { createClient } from "../../../lib/supabase/client";
 
 export default function CompanyOnboardingPage() {
@@ -57,6 +58,7 @@ export default function CompanyOnboardingPage() {
     setLoading(true);
 
     const cleanName = companyName.trim();
+
     if (!cleanName) {
       setLoading(false);
       setError("請輸入公司名稱。");
@@ -70,7 +72,7 @@ export default function CompanyOnboardingPage() {
 
     if (error) {
       setLoading(false);
-      setError(error.message);
+      setError("暫時未能建立工作空間，請稍後再試。");
       return;
     }
 
@@ -78,31 +80,35 @@ export default function CompanyOnboardingPage() {
     router.refresh();
   }
 
-  if (loading) {
-    return <div className="card login"><p className="muted">正在準備你的工作空間…</p></div>;
-  }
-
   return (
-    <div className="card login">
-      <h1>設定你的工作空間</h1>
-      <p className="muted">輸入公司名稱，我們會自動建立獨立的 WhatsLead 工作空間。</p>
+    <AuthShell
+      eyebrow="最後一步"
+      title="設定你的工作空間"
+      description="輸入公司名稱，我們會建立一個只屬於你公司的 WhatsLead 工作空間。"
+    >
+      {loading ? (
+        <div className="auth-loading">正在準備你的工作空間…</div>
+      ) : (
+        <form className="auth-form" onSubmit={submit}>
+          <label className="auth-field">
+            <span>公司名稱</span>
+            <input
+              className="input auth-input"
+              placeholder="你的公司名稱"
+              value={companyName}
+              onChange={e=>setCompanyName(e.target.value)}
+              required
+              autoFocus
+            />
+          </label>
 
-      <form className="grid" onSubmit={submit}>
-        <input
-          className="input"
-          placeholder="公司名稱"
-          value={companyName}
-          onChange={e=>setCompanyName(e.target.value)}
-          required
-          autoFocus
-        />
+          {error && <div className="error-note">{error}</div>}
 
-        {error && <div className="error-note">{error}</div>}
-
-        <button className="btn" disabled={loading}>
-          建立工作空間
-        </button>
-      </form>
-    </div>
+          <button className="btn auth-primary-button" disabled={loading}>
+            建立工作空間
+          </button>
+        </form>
+      )}
+    </AuthShell>
   );
 }
