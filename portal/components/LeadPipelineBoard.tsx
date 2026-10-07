@@ -23,8 +23,7 @@ type Contact = {
 const columns = [
   {id:"pending",label:"待處理",hint:"AI 已轉交，等待真人接手"},
   {id:"contacted",label:"人工處理中",hint:"真人已接手，AI 暫停"},
-  {id:"returned_to_ai",label:"已交回 AI",hint:"AI 已重新啟用並繼續處理"},
-  {id:"resolved",label:"已完成",hint:"此人工跟進已完成"}
+  {id:"returned_to_ai",label:"已交回 AI",hint:"AI 已重新啟用並繼續處理"}
 ];
 
 function leadLabel(value:string){
