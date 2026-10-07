@@ -25,7 +25,6 @@ export default function AIReplyFeedback({
 }){
   const [open,setOpen]=useState(false);
   const [comment,setComment]=useState("");
-  const [applyAsGuidance,setApplyAsGuidance]=useState(true);
   const [saving,setSaving]=useState(false);
   const [loadingHistory,setLoadingHistory]=useState(true);
   const [feedback,setFeedback]=useState<FeedbackItem[]>([]);
@@ -103,25 +102,28 @@ export default function AIReplyFeedback({
       return;
     }
 
-    if(applyAsGuidance){
-      const {error:guidanceError}=await supabase
-        .from("ai_guidance")
-        .insert({
-          tenant_id:tenantId,
-          source_feedback_id:newFeedback.id,
-          guidance:cleanComment,
-          category:"message_feedback",
-          is_active:true,
-          priority:100,
-          created_by_user_id:user?.id??null
-        });
+    const {error:guidanceError}=await supabase
+      .from("ai_guidance")
+      .insert({
+        tenant_id:tenantId,
+        source_feedback_id:newFeedback.id,
+        guidance:cleanComment,
+        category:"message_feedback",
+        is_active:true,
+        priority:100,
+        created_by_user_id:user?.id??null
+      });
 
-      if(guidanceError){
-        setError("評論已儲存，但 AI 指引建立失敗："+guidanceError.message);
-        setSaving(false);
-        await loadFeedback();
-        return;
-      }
+    if(guidanceError){
+      await supabase
+        .from("ai_feedback")
+        .delete()
+        .eq("id",newFeedback.id)
+        .eq("tenant_id",tenantId);
+
+      setError("未能建立 AI 指引，評論未有儲存："+guidanceError.message);
+      setSaving(false);
+      return;
     }
 
     setComment("");
@@ -204,23 +206,16 @@ export default function AIReplyFeedback({
         placeholder="例如：呢類問題應該先問 budget；回覆太長；香港客應該用自然廣東話..."
       />
 
-      <label className="ai-feedback-guidance">
-        <input
-          type="checkbox"
-          checked={applyAsGuidance}
-          onChange={e=>setApplyAsGuidance(e.target.checked)}
-        />
-        <span>
-          <strong>套用為未來 AI 指引</strong>
-          <small>開啟後，呢條評論會直接加入 workspace 嘅 AI guidance，影響之後回覆。</small>
-        </span>
-      </label>
+      <div className="ai-feedback-guidance-note">
+        <strong>呢條評論會自動加入 AI Training</strong>
+        <small>儲存後會成為有效 AI 指引，直接影響之後嘅回覆；你可以之後喺 AI Training 編輯、停用或刪除。</small>
+      </div>
 
       {error ? <div className="error-note">{error}</div> : null}
 
       <div className="ai-feedback-footer">
         <span className="muted">
-          {loadingHistory ? "載入評論中…" : "只有已套用為 AI 指引的評論先會影響 prompt。"}
+          {loadingHistory ? "載入評論中…" : "每一條已儲存評論都會成為 AI 指引。"}
         </span>
         <button className="btn" type="submit" disabled={saving || !comment.trim()}>
           {saving?"儲存中...":"儲存評論"}
