@@ -2277,3 +2277,81 @@ pre{
     position:static;
   }
 }
+
+
+/* AI feedback history + deletion */
+.ai-feedback-wrap{
+  margin-top:8px;
+}
+
+.ai-feedback-existing{
+  display:grid;
+  gap:7px;
+  margin-top:8px;
+}
+
+.ai-feedback-existing-item{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  padding:9px 10px;
+  border-radius:10px;
+  background:#f8fbff;
+  border:1px solid #dfe9f5;
+}
+
+.ai-feedback-existing-item>div{
+  min-width:0;
+}
+
+.ai-feedback-existing-item strong{
+  display:block;
+  color:#42516a;
+  font-size:11px;
+  line-height:1.5;
+  font-weight:650;
+}
+
+.ai-feedback-existing-item small{
+  display:block;
+  margin-top:3px;
+  color:#8a96a9;
+  font-size:9px;
+}
+
+.ai-feedback-delete,
+.danger-link{
+  border:0;
+  background:transparent;
+  color:#b04a4a;
+  font-size:10px;
+  font-weight:750;
+  cursor:pointer;
+  padding:3px 5px;
+  white-space:nowrap;
+}
+
+.ai-feedback-delete:hover,
+.danger-link:hover{
+  text-decoration:underline;
+}
+
+.danger-link:disabled,
+.ai-feedback-delete:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+
+.ai-feedback-history-actions{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.ai-feedback-head>div small{
+  display:block;
+  margin-top:2px;
+  font-size:10px;
+}
