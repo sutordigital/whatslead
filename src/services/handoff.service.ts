@@ -47,7 +47,7 @@ export async function persistHumanHandoff(
         end,
         summary = excluded.summary,
         status = case
-          when public.handoffs.status in ('resolved', 'cancelled') then 'pending'
+          when public.handoffs.status in ('resolved', 'cancelled', 'returned_to_ai') then 'pending'
           else public.handoffs.status
         end,
         updated_at = now()
