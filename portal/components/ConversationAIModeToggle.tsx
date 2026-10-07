@@ -42,31 +42,38 @@ export default function ConversationAIModeToggle({
       return;
     }
 
+    const nextHandoffStatus = next === "active" ? "returned_to_ai" : "contacted";
+
+    let handoffQuery = supabase
+      .from("handoffs")
+      .update({
+        status: nextHandoffStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq("conversation_id", conversationId)
+      .eq("tenant_id", tenantId);
+
     if (next === "active") {
-      const { error: handoffError } = await supabase
-        .from("handoffs")
+      handoffQuery = handoffQuery.in("status", ["pending", "contacted"]);
+    } else {
+      handoffQuery = handoffQuery.neq("status", "resolved");
+    }
+
+    const { error: handoffError } = await handoffQuery;
+
+    if (handoffError) {
+      await supabase
+        .from("conversations")
         .update({
-          status: "returned_to_ai",
+          ai_mode: mode,
           updated_at: new Date().toISOString()
         })
-        .eq("conversation_id", conversationId)
-        .eq("tenant_id", tenantId)
-        .in("status", ["pending", "contacted"]);
+        .eq("id", conversationId)
+        .eq("tenant_id", tenantId);
 
-      if (handoffError) {
-        await supabase
-          .from("conversations")
-          .update({
-            ai_mode: mode,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", conversationId)
-          .eq("tenant_id", tenantId);
-
-        setError(handoffError.message);
-        setSaving(false);
-        return;
-      }
+      setError(handoffError.message);
+      setSaving(false);
+      return;
     }
 
     setMode(next);
