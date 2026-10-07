@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTenantEntitlement } from "./TenantEntitlementProvider";
 
 export default function BookingStatusSelect({
   id,
@@ -14,8 +15,11 @@ export default function BookingStatusSelect({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const entitlement = useTenantEntitlement();
+  const locked = !entitlement.loading && !entitlement.canUseAutomation;
 
   async function change(next: string) {
+    if (locked) return;
     const previous = status;
     setStatus(next);
     setSaving(true);
@@ -50,7 +54,7 @@ export default function BookingStatusSelect({
       <select
         className="input compact-select"
         value={status}
-        disabled={saving}
+        disabled={locked || saving}
         onChange={e => change(e.target.value)}
       >
         <option value="pending">待確認</option>
@@ -59,6 +63,7 @@ export default function BookingStatusSelect({
         <option value="cancelled">已取消</option>
         <option value="no_show">未有出席</option>
       </select>
+      {locked ? <span className="muted">試用已結束</span> : null}
       {saving ? <span className="muted">更新中…</span> : null}
       {error ? <span className="error-note">{error}</span> : null}
     </div>
