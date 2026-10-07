@@ -13,7 +13,12 @@ function initials(name?:string|null, phone?:string|null){
   return source.slice(0,1).toUpperCase();
 }
 
-export default async function ConversationsPage(){
+export default async function ConversationsPage({
+  searchParams
+}: {
+  searchParams: Promise<{ q?: string }>
+}){
+  const { q = "" } = await searchParams;
   const { supabase, tenantId } = await requireTenant();
 
   const { data: conversations } = await supabase
@@ -41,6 +46,18 @@ export default async function ConversationsPage(){
     if(!previewMap.has(message.conversation_id)) previewMap.set(message.conversation_id,message);
   }
 
+  const query=q.trim().toLowerCase();
+  const visibleConversations=query
+    ? (conversations??[]).filter(item=>{
+        const person=contactMap.get(item.contact_id);
+        return [
+          person?.display_name,
+          person?.phone_number,
+          previewMap.get(item.id)?.content
+        ].some(value=>typeof value==="string" && value.toLowerCase().includes(query));
+      })
+    : (conversations??[]);
+
   return <PortalShell>
     <ConversationRealtimeRefresh tenantId={tenantId}/>
 
@@ -51,15 +68,15 @@ export default async function ConversationsPage(){
             <div className="inbox-kicker">收件匣</div>
             <h1>對話</h1>
           </div>
-          <span className="pill">{conversations?.length??0}</span>
+          <span className="pill">{visibleConversations.length}</span>
         </div>
 
         <form className="inbox-search-wrap" action="/conversations">
-          <input className="input inbox-search" name="q" placeholder="搜尋客戶或電話號碼" />
+          <input className="input inbox-search" name="q" defaultValue={q} placeholder="搜尋客戶或電話號碼" />
         </form>
 
         <div className="inbox-conversation-list">
-          {(conversations??[]).map(item=>{
+          {visibleConversations.map(item=>{
             const person=contactMap.get(item.contact_id);
             const preview=previewMap.get(item.id);
             return <a className="inbox-conversation-item" href={"/conversations/"+item.id} key={item.id}>
