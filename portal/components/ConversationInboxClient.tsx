@@ -325,7 +325,7 @@ export default function ConversationInboxClient({
             <span>{selectedContact?.phone_number} · {conversationStatus(selectedConversation.status)}</span>
           </div>
         </div>
-        <ConversationAIModeToggle conversationId={selectedConversation.id} initialMode={selectedConversation.ai_mode}/>
+        <ConversationAIModeToggle conversationId={selectedConversation.id} tenantId={tenantId} initialMode={selectedConversation.ai_mode}/>
       </header>
 
       <div
