@@ -10,6 +10,7 @@ import { sendWhatsAppTextMessage } from "./services/whatsapp.service.js";
 import { generateAIReply } from "./services/ai.service.js";
 import { persistHumanHandoff } from "./services/handoff.service.js";
 import { getTenantAISettings } from "./services/tenantAISettings.service.js";
+import { getActiveAIGuidance } from "./services/aiGuidance.service.js";
 import { getConversationSendContext, pauseConversationAI } from "./services/conversation.service.js";
 import {
   createAIBooking,
@@ -93,7 +94,10 @@ app.post("/webhooks/meta", async (req, res) => {
     let replyText =
       "Thanks for your message! 我哋已經收到你嘅查詢，團隊會盡快跟進你。";
 
-    const aiSettings = await getTenantAISettings(account.tenant_id);
+    const [aiSettings, aiGuidance] = await Promise.all([
+      getTenantAISettings(account.tenant_id),
+      getActiveAIGuidance(account.tenant_id)
+    ]);
 
     if (aiSettings?.ai_enabled === false) {
       console.log("AI replies disabled for tenant", account.tenant_id);
@@ -122,6 +126,7 @@ app.post("/webhooks/meta", async (req, res) => {
           history: priorHistory,
           customerMessage,
           settings: aiSettings,
+          guidance: aiGuidance,
           activeBooking,
           executeHandoff: async ({ reason, lead_status, summary }) => {
             const handoff = await persistHumanHandoff({
