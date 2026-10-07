@@ -2898,6 +2898,9 @@ pre{
 }
 
 .trial-banner{
+  position:sticky;
+  top:12px;
+  z-index:40;
   max-width:1180px;
   margin:0 auto 18px;
   padding:12px 14px 12px 16px;
@@ -2908,6 +2911,8 @@ pre{
   border-radius:14px;
   border:1px solid #d8e5f5;
   background:#f5f9ff;
+  box-shadow:0 10px 30px rgba(31,57,92,.10);
+  backdrop-filter:blur(10px);
 }
 
 .trial-banner>div{
