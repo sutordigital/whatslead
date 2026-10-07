@@ -54,9 +54,9 @@ export default async function ConversationsPage(){
           <span className="pill">{conversations?.length??0}</span>
         </div>
 
-        <div className="inbox-search-wrap">
-          <input className="input inbox-search" placeholder="搜尋客戶或電話號碼" />
-        </div>
+        <form className="inbox-search-wrap" action="/conversations">
+          <input className="input inbox-search" name="q" placeholder="搜尋客戶或電話號碼" />
+        </form>
 
         <div className="inbox-conversation-list">
           {(conversations??[]).map(item=>{
