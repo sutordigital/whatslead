@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../lib/supabase/client";
+import { useTenantEntitlement } from "./TenantEntitlementProvider";
 
 function hongKongToday() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -31,6 +32,8 @@ export default function BookingForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const entitlement = useTenantEntitlement();
+  const locked = !entitlement.loading && !entitlement.canUseAutomation;
 
   const dateTimePreview = useMemo(() => {
     if (!date || !time) return "";
@@ -39,6 +42,7 @@ export default function BookingForm({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (locked) return;
     setSaving(true);
     setError("");
     setSaved(false);
@@ -124,11 +128,12 @@ export default function BookingForm({
 
       <div className="row">
         <small className="muted">{dateTimePreview}</small>
-        <button className="btn" type="submit" disabled={saving}>
+        <button className="btn" type="submit" disabled={locked || saving}>
           {saving ? "建立中..." : "建立預約"}
         </button>
       </div>
 
+      {locked ? <div className="trial-lock-note">免費試用已結束。升級後可建立新預約。</div> : null}
       {saved ? <div className="success-note">預約已建立。</div> : null}
       {error ? <div className="error-note">建立失敗：{error}</div> : null}
     </form>
