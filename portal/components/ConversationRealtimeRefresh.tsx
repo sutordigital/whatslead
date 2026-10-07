@@ -51,6 +51,16 @@ export default function ConversationRealtimeRefresh({
         {
           event: "*",
           schema: "public",
+          table: "contacts",
+          filter: `tenant_id=eq.${tenantId}`
+        },
+        refreshSoon
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
           table: "bookings",
           filter: conversationId
             ? `conversation_id=eq.${conversationId}`
