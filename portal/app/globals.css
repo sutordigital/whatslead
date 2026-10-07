@@ -2411,3 +2411,76 @@ pre{
     min-height:620px;
   }
 }
+
+
+/* Conversation side-panel spacing + AI feedback footer alignment */
+.ai-feedback-footer{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+}
+
+.ai-feedback-footer > span{
+  min-width:0;
+  font-size:10px;
+  line-height:1.45;
+  color:#7f8ba0;
+}
+
+.ai-feedback-footer .btn{
+  width:auto !important;
+  min-width:82px;
+  padding:8px 10px;
+  font-size:11px;
+  line-height:1.25;
+  align-self:center;
+}
+
+.ai-feedback-box{
+  padding:12px;
+}
+
+.ai-feedback-box textarea.input{
+  margin:0;
+}
+
+.inbox-info-panel{
+  padding:16px 18px;
+}
+
+.inbox-info-section{
+  padding:14px 0;
+}
+
+.inbox-info-section .row{
+  margin-bottom:8px;
+}
+
+.compact-booking{
+  padding:11px 12px;
+  gap:6px;
+}
+
+.inbox-details{
+  margin-top:8px;
+}
+
+.inbox-details summary{
+  padding:6px 0;
+  margin:0;
+}
+
+.inbox-info-section:last-child{
+  padding-bottom:8px;
+}
+
+@media(max-width:560px){
+  .ai-feedback-footer{
+    grid-template-columns:1fr;
+  }
+
+  .ai-feedback-footer .btn{
+    width:100% !important;
+  }
+}
