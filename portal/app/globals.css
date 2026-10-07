@@ -2502,9 +2502,9 @@ pre{
 
 .lead-pipeline-board{
   display:grid;
-  grid-template-columns:repeat(4,minmax(280px,1fr));
+  grid-template-columns:repeat(3,minmax(0,1fr));
   gap:14px;
-  min-width:1160px;
+  width:100%;
 }
 
 .lead-pipeline-column{
@@ -2701,9 +2701,13 @@ pre{
 }
 
 @media(max-width:900px){
+  .lead-pipeline-shell{
+    overflow-x:auto;
+  }
+
   .lead-pipeline-board{
-    min-width:1040px;
-    grid-template-columns:repeat(4,250px);
+    min-width:840px;
+    grid-template-columns:repeat(3,minmax(260px,1fr));
   }
 }
 
