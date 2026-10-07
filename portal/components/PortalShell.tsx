@@ -6,8 +6,9 @@ import { createClient } from "../lib/supabase/client";
 const navItems = [
   { href: "/dashboard", label: "總覽" },
   { href: "/conversations", label: "對話紀錄" },
-  { href: "/leads", label: "潛在客戶" },
+  { href: "/leads", label: "需要人工跟進" },
   { href: "/bookings", label: "預約" },
+  { href: "/ai-training", label: "AI Training" },
   { href: "/settings", label: "設定" }
 ];
 

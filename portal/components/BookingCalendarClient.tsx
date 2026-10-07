@@ -203,9 +203,15 @@ export default function BookingCalendarClient({
                 const contact=contactMap.get(booking.contact_id);
                 const p=hkDateParts(new Date(booking.scheduled_at));
                 const event=<>
-                  <div className="calendar-event-time">{p.hour}:{p.minute}</div>
+                  <div className="calendar-event-top">
+                    <div className="calendar-event-time">{p.hour}:{p.minute}</div>
+                    <span className={"calendar-event-status "+statusClass(booking.status)}>{statusLabel(booking.status)}</span>
+                  </div>
                   <div className="calendar-event-name">{contact?.display_name||contact?.phone_number||"客戶"}</div>
                   <div className="calendar-event-meta">{typeLabel(booking.booking_type)} · {booking.duration_minutes} 分鐘</div>
+                  <div className="calendar-event-reason" title={booking.notes||"未提供原因"}>
+                    原因：{booking.notes||"未提供原因"}
+                  </div>
                 </>;
 
                 return booking.conversation_id
@@ -236,7 +242,7 @@ export default function BookingCalendarClient({
             <div className="calendar-agenda-main">
               <strong>{contact?.display_name||contact?.phone_number||"客戶"}</strong>
               <span>{p.hour}:{p.minute} · {typeLabel(booking.booking_type)} · {booking.duration_minutes} 分鐘</span>
-              {booking.notes ? <small>{booking.notes}</small> : null}
+              <small><strong>原因：</strong>{booking.notes||"未提供原因"}</small>
             </div>
             <BookingStatusSelect id={booking.id} initial={booking.status}/>
             {booking.conversation_id ? <a className="text-link" href={"/conversations/"+booking.conversation_id}>查看對話 →</a> : null}

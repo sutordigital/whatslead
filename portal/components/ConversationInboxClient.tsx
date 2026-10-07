@@ -112,6 +112,8 @@ export default function ConversationInboxClient({
     Object.fromEntries(initialPreviews.map(p=>[p.conversation_id,p]))
   );
   const requestToken=useRef(0);
+  const messageScrollRef=useRef<HTMLDivElement|null>(null);
+  const stickToBottomRef=useRef(true);
 
   const contactMap=useMemo(
     ()=>new Map(contacts.map(c=>[c.id,c])),
@@ -166,11 +168,21 @@ export default function ConversationInboxClient({
 
   async function selectConversation(id:string){
     if(id===selectedId) return;
+    stickToBottomRef.current=true;
     setSelectedId(id);
     setLoading(!(messageCache[id] && bookingCache[id]));
     window.history.pushState(null,"",`/conversations/${id}`);
     await loadConversation(id);
   }
+
+  useEffect(()=>{
+    if(loading || !stickToBottomRef.current) return;
+    const frame=requestAnimationFrame(()=>{
+      const node=messageScrollRef.current;
+      if(node) node.scrollTop=node.scrollHeight;
+    });
+    return ()=>cancelAnimationFrame(frame);
+  },[selectedId,loading,messages.length]);
 
   useEffect(()=>{
     function onPopState(){
@@ -313,10 +325,18 @@ export default function ConversationInboxClient({
             <span>{selectedContact?.phone_number} · {conversationStatus(selectedConversation.status)}</span>
           </div>
         </div>
-        <ConversationAIModeToggle conversationId={selectedConversation.id} initialMode={selectedConversation.ai_mode}/>
+        <ConversationAIModeToggle conversationId={selectedConversation.id} tenantId={tenantId} initialMode={selectedConversation.ai_mode}/>
       </header>
 
-      <div className="inbox-message-scroll">
+      <div
+        className="inbox-message-scroll"
+        ref={messageScrollRef}
+        onScroll={event=>{
+          const node=event.currentTarget;
+          stickToBottomRef.current =
+            node.scrollHeight-node.scrollTop-node.clientHeight < 120;
+        }}
+      >
         {loading ? <div className="inbox-loading">載入對話中…</div> : <div className="messages inbox-messages">
           {messages.map(m=>
             <div key={m.id} className={"message "+(m.direction==="outbound"?"outbound":"")}>

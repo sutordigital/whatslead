@@ -5,9 +5,11 @@ import { createClient } from "../lib/supabase/client";
 
 export default function ConversationAIModeToggle({
   conversationId,
+  tenantId,
   initialMode
 }: {
   conversationId: string;
+  tenantId: string;
   initialMode: string;
 }) {
   const [mode, setMode] = useState(initialMode);
@@ -23,20 +25,51 @@ export default function ConversationAIModeToggle({
     setSaving(true);
     setError("");
 
-    const { error } = await createClient()
+    const supabase = createClient();
+
+    const { error } = await supabase
       .from("conversations")
       .update({
         ai_mode: next,
         updated_at: new Date().toISOString()
       })
-      .eq("id", conversationId);
+      .eq("id", conversationId)
+      .eq("tenant_id", tenantId);
 
     if (error) {
       setError(error.message);
-    } else {
-      setMode(next);
+      setSaving(false);
+      return;
     }
 
+    if (next === "active") {
+      const { error: handoffError } = await supabase
+        .from("handoffs")
+        .update({
+          status: "returned_to_ai",
+          updated_at: new Date().toISOString()
+        })
+        .eq("conversation_id", conversationId)
+        .eq("tenant_id", tenantId)
+        .in("status", ["pending", "contacted"]);
+
+      if (handoffError) {
+        await supabase
+          .from("conversations")
+          .update({
+            ai_mode: mode,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", conversationId)
+          .eq("tenant_id", tenantId);
+
+        setError(handoffError.message);
+        setSaving(false);
+        return;
+      }
+    }
+
+    setMode(next);
     setSaving(false);
   }
 
@@ -50,7 +83,7 @@ export default function ConversationAIModeToggle({
           <div className="muted">
             {isActive
               ? "目前啟用中。客戶新訊息會由 AI 自動回覆。"
-              : "目前已暫停。新訊息仍會記錄，但 AI 不會自動回覆。"}
+              : "目前由真人處理。交回 AI 後，新訊息會再次由 AI 自動回覆。"}
           </div>
         </div>
 
@@ -59,7 +92,7 @@ export default function ConversationAIModeToggle({
             ? "更新中..."
             : isActive
               ? "暫停 AI"
-              : "重新啟用 AI"}
+              : "交回 AI 處理"}
         </button>
       </div>
 

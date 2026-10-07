@@ -1,7 +1,18 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "../lib/supabase/client";
+
+type FeedbackItem = {
+  id:string;
+  comment:string|null;
+  created_at:string;
+  guidance:{
+    id:string;
+    is_active:boolean;
+    guidance:string;
+  }|null;
+};
 
 export default function AIReplyFeedback({
   tenantId,
@@ -13,32 +24,73 @@ export default function AIReplyFeedback({
   messageId:string;
 }){
   const [open,setOpen]=useState(false);
-  const [feedbackType,setFeedbackType]=useState<"positive"|"negative"|"comment">("comment");
   const [comment,setComment]=useState("");
-  const [applyAsGuidance,setApplyAsGuidance]=useState(true);
   const [saving,setSaving]=useState(false);
-  const [saved,setSaved]=useState(false);
+  const [loadingHistory,setLoadingHistory]=useState(true);
+  const [feedback,setFeedback]=useState<FeedbackItem[]>([]);
   const [error,setError]=useState("");
+
+  async function loadFeedback(){
+    setLoadingHistory(true);
+    const supabase=createClient();
+
+    const {data:rows,error:feedbackError}=await supabase
+      .from("ai_feedback")
+      .select("id,comment,created_at")
+      .eq("tenant_id",tenantId)
+      .eq("message_id",messageId)
+      .not("comment","is",null)
+      .order("created_at",{ascending:false});
+
+    if(feedbackError){
+      setError(feedbackError.message);
+      setLoadingHistory(false);
+      return;
+    }
+
+    const ids=(rows??[]).map(row=>row.id);
+    const {data:guidanceRows}=ids.length
+      ? await supabase
+          .from("ai_guidance")
+          .select("id,source_feedback_id,is_active,guidance")
+          .eq("tenant_id",tenantId)
+          .in("source_feedback_id",ids)
+      : {data:[] as any[]};
+
+    const guidanceMap=new Map(
+      (guidanceRows??[]).map(row=>[row.source_feedback_id,row])
+    );
+
+    setFeedback((rows??[]).map(row=>({
+      ...row,
+      guidance:guidanceMap.get(row.id)??null
+    })));
+    setLoadingHistory(false);
+  }
+
+  useEffect(()=>{
+    loadFeedback();
+  },[tenantId,messageId]);
 
   async function save(event:FormEvent){
     event.preventDefault();
-    if(!comment.trim() && feedbackType==="comment") return;
+    const cleanComment=comment.trim();
+    if(!cleanComment) return;
 
     setSaving(true);
     setError("");
-    setSaved(false);
 
     const supabase=createClient();
     const {data:{user}}=await supabase.auth.getUser();
 
-    const {data:feedback,error:feedbackError}=await supabase
+    const {data:newFeedback,error:feedbackError}=await supabase
       .from("ai_feedback")
       .insert({
         tenant_id:tenantId,
         conversation_id:conversationId,
         message_id:messageId,
-        feedback_type:feedbackType,
-        comment:comment.trim()||null,
+        feedback_type:"comment",
+        comment:cleanComment,
         created_by_user_id:user?.id??null
       })
       .select("id")
@@ -50,94 +102,125 @@ export default function AIReplyFeedback({
       return;
     }
 
-    if(applyAsGuidance && comment.trim()){
+    const {error:guidanceError}=await supabase
+      .from("ai_guidance")
+      .insert({
+        tenant_id:tenantId,
+        source_feedback_id:newFeedback.id,
+        guidance:cleanComment,
+        category:"message_feedback",
+        is_active:true,
+        priority:100,
+        created_by_user_id:user?.id??null
+      });
+
+    if(guidanceError){
+      await supabase
+        .from("ai_feedback")
+        .delete()
+        .eq("id",newFeedback.id)
+        .eq("tenant_id",tenantId);
+
+      setError("未能建立 AI 指引，評論未有儲存："+guidanceError.message);
+      setSaving(false);
+      return;
+    }
+
+    setComment("");
+    setSaving(false);
+    await loadFeedback();
+  }
+
+  async function deleteFeedback(item:FeedbackItem){
+    if(!window.confirm("刪除呢條 AI 評論？如果佢已套用為 AI 指引，該指引亦會一併刪除。")) return;
+
+    setError("");
+    const supabase=createClient();
+
+    if(item.guidance?.id){
       const {error:guidanceError}=await supabase
         .from("ai_guidance")
-        .insert({
-          tenant_id:tenantId,
-          source_feedback_id:feedback.id,
-          guidance:comment.trim(),
-          category:"message_feedback",
-          is_active:true,
-          priority:100,
-          created_by_user_id:user?.id??null
-        });
+        .delete()
+        .eq("id",item.guidance.id)
+        .eq("tenant_id",tenantId);
 
       if(guidanceError){
-        setError("Feedback saved, but guidance failed: "+guidanceError.message);
-        setSaving(false);
+        setError(guidanceError.message);
         return;
       }
     }
 
-    setSaved(true);
-    setSaving(false);
-    setTimeout(()=>{
-      setOpen(false);
-      setSaved(false);
-      setComment("");
-      setFeedbackType("comment");
-      setApplyAsGuidance(true);
-    },900);
+    const {error:feedbackError}=await supabase
+      .from("ai_feedback")
+      .delete()
+      .eq("id",item.id)
+      .eq("tenant_id",tenantId);
+
+    if(feedbackError){
+      setError(feedbackError.message);
+      return;
+    }
+
+    setFeedback(prev=>prev.filter(row=>row.id!==item.id));
   }
 
-  if(!open){
-    return <div className="ai-feedback-actions">
-      <button type="button" onClick={()=>{setFeedbackType("positive");setOpen(true);}}>👍 好</button>
-      <button type="button" onClick={()=>{setFeedbackType("negative");setOpen(true);}}>👎 改善</button>
-      <button type="button" onClick={()=>{setFeedbackType("comment");setOpen(true);}}>評論 AI 回覆</button>
-    </div>;
-  }
-
-  return <form className="ai-feedback-box" onSubmit={save}>
-    <div className="ai-feedback-head">
-      <strong>評論 AI 回覆</strong>
-      <button type="button" className="ai-feedback-close" onClick={()=>setOpen(false)}>×</button>
-    </div>
-
-    <div className="ai-feedback-rating">
-      <button
-        type="button"
-        className={feedbackType==="positive"?"active":""}
-        onClick={()=>setFeedbackType("positive")}
-      >👍 好</button>
-      <button
-        type="button"
-        className={feedbackType==="negative"?"active":""}
-        onClick={()=>setFeedbackType("negative")}
-      >👎 需要改善</button>
-      <button
-        type="button"
-        className={feedbackType==="comment"?"active":""}
-        onClick={()=>setFeedbackType("comment")}
-      >💬 評論</button>
-    </div>
-
-    <textarea
-      className="input"
-      rows={3}
-      value={comment}
-      onChange={e=>setComment(e.target.value)}
-      placeholder="例如：呢類問題應該先問 budget；回覆太長；香港客應該用廣東話口吻..."
-    />
-
-    <label className="ai-feedback-guidance">
-      <input
-        type="checkbox"
-        checked={applyAsGuidance}
-        onChange={e=>setApplyAsGuidance(e.target.checked)}
-      />
-      <span>
-        <strong>套用為未來 AI 指引</strong>
-        <small>之後同一個 workspace 嘅 AI 回覆會參考呢條規則。</small>
-      </span>
-    </label>
-
-    <div className="ai-feedback-footer">
-      <span className={error?"error-note":"muted"}>{error|| (saved?"已儲存 ✓":"")}</span>
-      <button className="btn" type="submit" disabled={saving || (!comment.trim() && feedbackType==="comment")}>
-        {saving?"儲存中...":"儲存評論"}
+  return <div className="ai-feedback-wrap">
+    <div className="ai-feedback-actions">
+      <button type="button" onClick={()=>setOpen(value=>!value)}>
+        評論 AI 回覆{feedback.length ? ` · ${feedback.length}` : ""}
       </button>
     </div>
-  </form>;
+
+    {feedback.length ? <div className="ai-feedback-existing">
+      {feedback.map(item=><div className="ai-feedback-existing-item" key={item.id}>
+        <div>
+          <strong>{item.comment}</strong>
+          <small>
+            {new Date(item.created_at).toLocaleString("zh-HK",{timeZone:"Asia/Hong_Kong"})}
+            {item.guidance ? (item.guidance.is_active ? " · 已套用至 AI" : " · AI 指引已停用") : " · 只作評論"}
+          </small>
+        </div>
+        <button
+          type="button"
+          className="ai-feedback-delete"
+          onClick={()=>deleteFeedback(item)}
+          aria-label="刪除評論"
+        >刪除</button>
+      </div>)}
+    </div> : null}
+
+    {open ? <form className="ai-feedback-box" onSubmit={save}>
+      <div className="ai-feedback-head">
+        <div>
+          <strong>新增 AI 回覆評論</strong>
+          <small className="muted">寫低 AI 下次應該點樣處理類似情況。</small>
+        </div>
+        <button type="button" className="ai-feedback-close" onClick={()=>setOpen(false)}>×</button>
+      </div>
+
+      <textarea
+        className="input"
+        rows={3}
+        value={comment}
+        onChange={e=>setComment(e.target.value)}
+        placeholder="例如：呢類問題應該先問 budget；回覆太長；香港客應該用自然廣東話..."
+      />
+
+      <div className="ai-feedback-guidance-note">
+        <strong>呢條評論會自動加入 AI Training</strong>
+        <small>儲存後會成為有效 AI 指引，直接影響之後嘅回覆；你可以之後喺 AI Training 編輯、停用或刪除。</small>
+      </div>
+
+      {error ? <div className="error-note">{error}</div> : null}
+
+      <div className="ai-feedback-footer">
+        <span className="muted">
+          {loadingHistory ? "載入評論中…" : "每一條已儲存評論都會成為 AI 指引。"}
+        </span>
+        <button className="btn" type="submit" disabled={saving || !comment.trim()}>
+          {saving?"儲存中...":"儲存評論"}
+        </button>
+      </div>
+    </form> : null}
+  </div>;
 }

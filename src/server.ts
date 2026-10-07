@@ -139,6 +139,11 @@ app.post("/webhooks/meta", async (req, res) => {
               summary
             });
 
+            await pauseConversationAI(
+              activeConversationId,
+              account.tenant_id
+            );
+
             return {
               success: true,
               handoffId: handoff.id,
@@ -406,6 +411,17 @@ app.post("/internal/conversations/:id/messages", async (req, res) => {
       content: text,
       senderType: "human"
     });
+
+    await db.query(
+      `
+      update public.handoffs
+      set status = 'contacted',
+          updated_at = now()
+      where tenant_id = $1
+        and conversation_id = $2
+      `,
+      [tenantId, conversationId]
+    );
 
     return res.status(200).json({
       success: true,
