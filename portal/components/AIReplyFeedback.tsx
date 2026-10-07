@@ -40,6 +40,7 @@ export default function AIReplyFeedback({
       .select("id,comment,created_at")
       .eq("tenant_id",tenantId)
       .eq("message_id",messageId)
+      .not("comment","is",null)
       .order("created_at",{ascending:false});
 
     if(feedbackError){
