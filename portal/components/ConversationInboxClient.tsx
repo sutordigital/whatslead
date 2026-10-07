@@ -303,7 +303,7 @@ export default function ConversationInboxClient({
             <div className="inbox-conversation-main">
               <div className="inbox-conversation-top">
                 <strong>{person?.display_name||person?.phone_number||"未知聯絡人"}</strong>
-                <small>{item.last_message_at?new Date(item.last_message_at).toLocaleTimeString("zh-HK",{hour:"2-digit",minute:"2-digit"}):""}</small>
+                <small>{item.last_message_at?new Date(item.last_message_at).toLocaleTimeString("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit"}):""}</small>
               </div>
               <div className="inbox-preview">{preview?.content||person?.phone_number||"暫未有訊息"}</div>
               <div className="inbox-tags">

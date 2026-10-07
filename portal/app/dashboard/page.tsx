@@ -50,7 +50,7 @@ export default async function DashboardPage(){
             <span className="pill">{statusLabel(item.status)}</span>
           </div>
           <p>{item.summary}</p>
-          <small className="muted">{new Date(item.created_at).toLocaleString("zh-HK")}</small>
+          <small className="muted">{new Date(item.created_at).toLocaleString("zh-HK",{timeZone:"Asia/Hong_Kong"})}</small>
         </div>
       ) : <div className="card muted">暫時未有需要人工跟進的潛在客戶。</div>}
     </div>
