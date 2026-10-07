@@ -20,10 +20,10 @@ export default async function LeadsPage(){
   return <PortalShell>
     <div className="page-header lead-pipeline-page-head">
       <div>
-        <h1>潛在客戶 Pipeline</h1>
-        <p className="muted">將 AI 識別出的潛在客戶按人工跟進進度管理。可直接拖動卡片到另一階段。</p>
+        <h1>需要人工跟進</h1>
+        <p className="muted">AI 已將需要真人介入的 WhatsApp 對話轉交團隊處理。完成後可交回 AI 繼續跟進，或由團隊繼續接手。</p>
       </div>
-      <span className="pill">{leads?.length??0} 個潛在客戶</span>
+      <span className="pill">{leads?.length??0} 個跟進項目</span>
     </div>
 
     <LeadPipelineBoard
