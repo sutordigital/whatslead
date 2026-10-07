@@ -23,10 +23,10 @@ type Contact = {
 };
 
 const columns = [
-  {id:"pending",label:"待跟進",hint:"AI 已識別，需要人工處理"},
-  {id:"contacted",label:"已聯絡",hint:"團隊已開始跟進"},
-  {id:"resolved",label:"已完成",hint:"已完成跟進"},
-  {id:"cancelled",label:"已取消",hint:"毋須再跟進"}
+  {id:"pending",label:"待處理",hint:"AI 已轉交，等待真人接手"},
+  {id:"contacted",label:"人工處理中",hint:"團隊已開始真人跟進"},
+  {id:"returned_to_ai",label:"已交回 AI",hint:"真人完成當前介入，AI 已重新啟用"},
+  {id:"resolved",label:"已完成",hint:"此人工跟進已完成"}
 ];
 
 function leadLabel(value:string){
@@ -71,7 +71,8 @@ export default function LeadPipelineBoard({
     setSavingId(id);
     setLeads(prev=>prev.map(l=>l.id===id?{...l,status:nextStatus}:l));
 
-    const {error}=await createClient()
+    const supabase=createClient();
+    const {error}=await supabase
       .from("handoffs")
       .update({status:nextStatus,updated_at:new Date().toISOString()})
       .eq("id",id)
@@ -79,7 +80,35 @@ export default function LeadPipelineBoard({
 
     if(error){
       setLeads(prev=>prev.map(l=>l.id===id?{...l,status:current.status}:l));
+      setSavingId(null);
+      return;
     }
+
+    const nextAIMode =
+      nextStatus==="returned_to_ai"
+        ? "active"
+        : ["pending","contacted"].includes(nextStatus)
+          ? "paused"
+          : null;
+
+    if(nextAIMode){
+      const {error:conversationError}=await supabase
+        .from("conversations")
+        .update({ai_mode:nextAIMode,updated_at:new Date().toISOString()})
+        .eq("id",current.conversation_id)
+        .eq("tenant_id",tenantId);
+
+      if(conversationError){
+        await supabase
+          .from("handoffs")
+          .update({status:current.status,updated_at:new Date().toISOString()})
+          .eq("id",id)
+          .eq("tenant_id",tenantId);
+
+        setLeads(prev=>prev.map(l=>l.id===id?{...l,status:current.status}:l));
+      }
+    }
+
     setSavingId(null);
   }
 
@@ -161,15 +190,15 @@ export default function LeadPipelineBoard({
                     disabled={savingId===lead.id}
                     onChange={e=>moveLead(lead.id,e.target.value)}
                   >
-                    <option value="pending">待跟進</option>
-                    <option value="contacted">已聯絡</option>
+                    <option value="pending">待處理</option>
+                    <option value="contacted">人工處理中</option>
+                    <option value="returned_to_ai">已交回 AI</option>
                     <option value="resolved">已完成</option>
-                    <option value="cancelled">已取消</option>
                   </select>
                   <a className="text-link" href={"/conversations/"+lead.conversation_id}>查看對話 →</a>
                 </div>
               </article>;
-            }) : <div className="lead-pipeline-empty">拖放潛在客戶到呢度</div>}
+            }) : <div className="lead-pipeline-empty">拖放跟進項目到呢度</div>}
           </div>
         </section>;
       })}
