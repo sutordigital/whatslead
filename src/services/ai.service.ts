@@ -356,7 +356,12 @@ function buildSystemInstructions(
     hourCycle: "h23"
   }).format(new Date());
 
-  const guidanceContext = guidance.length\n    ? "TENANT AI GUIDANCE — FOLLOW THESE WORKSPACE-SPECIFIC RULES WHEN RELEVANT:\\n" +\n      guidance.map((item, index) => `${index + 1}. ${item}`).join("\\n")\n    : "";\n\n  return `${BASE_INSTRUCTIONS}\\n\\nCurrent Hong Kong date/time: ${hongKongNow}\\nTimezone: Asia/Hong_Kong\\n\\n${workspaceContext}${guidanceContext ? `\\n\\n${guidanceContext}` : ""}`;
+  const guidanceContext = guidance.length
+    ? "TENANT AI GUIDANCE — FOLLOW THESE WORKSPACE-SPECIFIC RULES WHEN RELEVANT:\n" +
+      guidance.map((item, index) => `${index + 1}. ${item}`).join("\n")
+    : "";
+
+  return `${BASE_INSTRUCTIONS}\n\nCurrent Hong Kong date/time: ${hongKongNow}\nTimezone: Asia/Hong_Kong\n\n${workspaceContext}${guidanceContext ? `\n\n${guidanceContext}` : ""}`;
 }
 
 function formatHistory(history: ConversationHistoryItem[]) {
