@@ -21,6 +21,7 @@ export default async function AITrainingPage(){
       .from("ai_feedback")
       .select("id,conversation_id,message_id,comment,created_at")
       .eq("tenant_id",tenantId)
+      .not("comment","is",null)
       .order("created_at",{ascending:false})
       .limit(100),
     supabase
