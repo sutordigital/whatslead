@@ -419,7 +419,6 @@ app.post("/internal/conversations/:id/messages", async (req, res) => {
           updated_at = now()
       where tenant_id = $1
         and conversation_id = $2
-        and status <> 'resolved'
       `,
       [tenantId, conversationId]
     );
