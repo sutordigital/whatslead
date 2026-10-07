@@ -1957,3 +1957,130 @@ pre{
   color:#7a8799;
   font-size:13px;
 }
+
+
+/* AI reply feedback */
+.ai-feedback-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:9px;
+  padding-top:8px;
+  border-top:1px solid rgba(132,151,180,.14);
+}
+
+.ai-feedback-actions button,
+.ai-feedback-rating button{
+  border:0;
+  background:transparent;
+  color:#77859a;
+  font-size:11px;
+  font-weight:700;
+  padding:5px 7px;
+  border-radius:7px;
+  cursor:pointer;
+}
+
+.ai-feedback-actions button:hover,
+.ai-feedback-rating button:hover,
+.ai-feedback-rating button.active{
+  background:#f0f5fc;
+  color:#2866b8;
+}
+
+.ai-feedback-box{
+  margin-top:10px;
+  padding:12px;
+  border:1px solid #dce6f2;
+  border-radius:12px;
+  background:#fff;
+  display:grid;
+  gap:10px;
+  box-shadow:0 8px 22px rgba(43,77,124,.06);
+}
+
+.ai-feedback-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+
+.ai-feedback-head strong{
+  font-size:12px;
+}
+
+.ai-feedback-close{
+  border:0;
+  background:transparent;
+  color:#8190a4;
+  cursor:pointer;
+  font-size:20px;
+  line-height:1;
+}
+
+.ai-feedback-rating{
+  display:flex;
+  gap:5px;
+  flex-wrap:wrap;
+}
+
+.ai-feedback-rating button{
+  background:#f7f9fc;
+  border:1px solid #e3e9f1;
+}
+
+.ai-feedback-box textarea.input{
+  min-height:78px;
+  font-size:12px;
+}
+
+.ai-feedback-guidance{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  padding:9px 10px;
+  border-radius:10px;
+  background:#f6f9fe;
+  cursor:pointer;
+}
+
+.ai-feedback-guidance input{
+  margin-top:3px;
+  accent-color:#2878f0;
+}
+
+.ai-feedback-guidance strong,
+.ai-feedback-guidance small{
+  display:block;
+}
+
+.ai-feedback-guidance strong{
+  font-size:11px;
+  color:#34445c;
+}
+
+.ai-feedback-guidance small{
+  margin-top:2px;
+  color:#8190a4;
+  font-size:10px;
+  line-height:1.4;
+}
+
+.ai-feedback-footer{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+
+.ai-feedback-footer .btn{
+  width:auto;
+  padding:7px 10px;
+  font-size:11px;
+}
+
+.ai-feedback-footer .error-note{
+  padding:6px 8px;
+  font-size:10px;
+}
