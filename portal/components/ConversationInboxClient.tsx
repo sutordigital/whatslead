@@ -6,6 +6,7 @@ import ConversationAIModeToggle from "./ConversationAIModeToggle";
 import HumanReplyComposer from "./HumanReplyComposer";
 import BookingForm from "./BookingForm";
 import BookingStatusSelect from "./BookingStatusSelect";
+import AIReplyFeedback from "./AIReplyFeedback";
 
 type Conversation = {
   id:string;
@@ -324,6 +325,13 @@ export default function ConversationInboxClient({
                 <small className="muted">{new Date(m.created_at).toLocaleString("zh-HK",{timeZone:"Asia/Hong_Kong"})}</small>
               </div>
               <div>{m.content}</div>
+              {m.direction==="outbound" && m.sender_type==="ai" ? (
+                <AIReplyFeedback
+                  tenantId={tenantId}
+                  conversationId={selectedConversation.id}
+                  messageId={m.id}
+                />
+              ) : null}
             </div>
           )}
         </div>}
