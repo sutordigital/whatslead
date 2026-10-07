@@ -24,17 +24,15 @@ export default function PortalShell({ children }: { children: React.ReactNode })
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand-wrap">
-          <div className="brand-mark" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
+        <Link href="/dashboard" className="brand-wrap">
+          <div className="portal-brand-mark" aria-hidden="true">W</div>
           <div>
-            <div className="brand">WhatsLead</div>
+            <div className="brand">
+              Whats<span>Lead</span>
+            </div>
             <div className="brand-sub">by Sutor Digital</div>
           </div>
-        </div>
+        </Link>
 
         <nav className="nav">
           {navItems.map((item) => {
@@ -58,8 +56,8 @@ export default function PortalShell({ children }: { children: React.ReactNode })
           <div className="workspace-badge">
             <div className="workspace-dot" />
             <div>
-              <strong>WhatsLead Workspace</strong>
-              <span>AI + WhatsApp CRM</span>
+              <strong>WhatsLead 工作空間</strong>
+              <span>AI + WhatsApp 客戶管理</span>
             </div>
           </div>
           <button className="logout-btn" onClick={logout}>登出</button>

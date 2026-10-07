@@ -52,6 +52,16 @@ export interface AvailableSlotsResult {
   reason?: string;
 }
 
+export interface ActiveConversationBooking {
+  id: string;
+  status: string;
+  bookingType: BookingType;
+  scheduledAt: string;
+  durationMinutes: number;
+  timezone: string;
+  notes: string | null;
+}
+
 const DEFAULT_SETTINGS: BookingSettings = {
   timezone: "Asia/Hong_Kong",
   default_duration_minutes: 30,
@@ -373,4 +383,45 @@ export async function createAIBooking(
   } finally {
     client.release();
   }
+}
+
+export async function getActiveConversationBooking(
+  tenantId: string,
+  conversationId: string
+): Promise<ActiveConversationBooking | null> {
+  const result = await db.query(
+    `
+    select
+      id,
+      status,
+      booking_type,
+      scheduled_at,
+      duration_minutes,
+      timezone,
+      notes
+    from public.bookings
+    where tenant_id = $1
+      and conversation_id = $2
+      and status in ('pending', 'confirmed')
+    order by scheduled_at asc
+    limit 1
+    `,
+    [tenantId, conversationId]
+  );
+
+  if (!result.rowCount || !result.rows[0]) {
+    return null;
+  }
+
+  const row = result.rows[0];
+
+  return {
+    id: row.id,
+    status: row.status,
+    bookingType: row.booking_type,
+    scheduledAt: new Date(row.scheduled_at).toISOString(),
+    durationMinutes: row.duration_minutes,
+    timezone: row.timezone || "Asia/Hong_Kong",
+    notes: row.notes ?? null
+  };
 }

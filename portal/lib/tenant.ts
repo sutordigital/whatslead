@@ -29,9 +29,7 @@ export async function requireTenant() {
   }
 
   if (!membership) {
-    throw new Error(
-      `No tenant membership found for authenticated user ${user.id}`
-    );
+    redirect("/onboarding/company");
   }
 
   return {

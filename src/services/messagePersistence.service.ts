@@ -196,6 +196,7 @@ export interface ConversationHistoryItem {
   sender_type: string;
   direction: string;
   content: string;
+  created_at: string;
 }
 
 export async function getRecentConversationMessages(
@@ -206,7 +207,7 @@ export async function getRecentConversationMessages(
 
   const result = await db.query(
     `
-    select sender_type, direction, content
+    select sender_type, direction, content, created_at
     from (
       select sender_type, direction, content, created_at
       from messages
