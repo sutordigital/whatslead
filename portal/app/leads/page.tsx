@@ -27,7 +27,6 @@ export default async function LeadsPage(){
     </div>
 
     <LeadPipelineBoard
-      tenantId={tenantId}
       initialLeads={leads??[]}
       contacts={contacts??[]}
     />
