@@ -12,6 +12,7 @@ import { persistHumanHandoff } from "./services/handoff.service.js";
 import { getTenantAISettings } from "./services/tenantAISettings.service.js";
 import { getActiveAIGuidance } from "./services/aiGuidance.service.js";
 import { getConversationSendContext, pauseConversationAI } from "./services/conversation.service.js";
+import { getTenantEntitlement } from "./services/entitlement.service.js";
 import {
   createAIBooking,
   findAvailableSlots,
@@ -84,6 +85,17 @@ app.post("/webhooks/meta", async (req, res) => {
       conversationAIMode = persistence.aiMode;
     } catch (error) {
       console.error("Message persistence failed:", error);
+    }
+
+    const entitlement = await getTenantEntitlement(account.tenant_id);
+
+    if (!entitlement.canUseAutomation) {
+      console.log(
+        "AI replies disabled because tenant entitlement is inactive",
+        account.tenant_id,
+        entitlement.status
+      );
+      return;
     }
 
     if (conversationAIMode === "paused") {
@@ -262,6 +274,15 @@ app.post("/internal/bookings/:id/status", async (req, res) => {
       return res.status(400).json({ error: "Invalid tenant_id or status" });
     }
 
+    const entitlement = await getTenantEntitlement(tenantId);
+
+    if (!entitlement.canUseAutomation) {
+      return res.status(402).json({
+        error: "WhatsLead trial or subscription is inactive",
+        code: "subscription_required"
+      });
+    }
+
     const result = await db.query(
       `
       select
@@ -385,6 +406,15 @@ app.post("/internal/conversations/:id/messages", async (req, res) => {
 
     if (text.length > 4000) {
       return res.status(400).json({ error: "Message is too long" });
+    }
+
+    const entitlement = await getTenantEntitlement(tenantId);
+
+    if (!entitlement.canUseAutomation) {
+      return res.status(402).json({
+        error: "WhatsLead trial or subscription is inactive",
+        code: "subscription_required"
+      });
     }
 
     const context = await getConversationSendContext(conversationId, tenantId);
