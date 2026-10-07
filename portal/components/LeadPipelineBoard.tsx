@@ -1,6 +1,7 @@
 "use client";
 
-import { DragEvent, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import type { DragEvent } from "react";
 import { createClient } from "../lib/supabase/client";
 
 type Lead = {
@@ -73,7 +74,7 @@ export default function LeadPipelineBoard({
     setSavingId(null);
   }
 
-  function drop(event:DragEvent<HTMLDivElement>,status:string){
+  function drop(event:DragEvent<HTMLElement>,status:string){
     event.preventDefault();
     if(draggingId) moveLead(draggingId,status);
     setDraggingId(null);
