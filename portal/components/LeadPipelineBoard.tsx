@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { DragEvent } from "react";
-import { createClient } from "../lib/supabase/client";
 
 type Lead = {
   id:string;
@@ -24,8 +22,8 @@ type Contact = {
 
 const columns = [
   {id:"pending",label:"待處理",hint:"AI 已轉交，等待真人接手"},
-  {id:"contacted",label:"人工處理中",hint:"團隊已開始真人跟進"},
-  {id:"returned_to_ai",label:"已交回 AI",hint:"真人完成當前介入，AI 已重新啟用"},
+  {id:"contacted",label:"人工處理中",hint:"真人已接手，AI 暫停"},
+  {id:"returned_to_ai",label:"已交回 AI",hint:"AI 已重新啟用並繼續處理"},
   {id:"resolved",label:"已完成",hint:"此人工跟進已完成"}
 ];
 
@@ -42,17 +40,13 @@ function leadClass(value:string){
 }
 
 export default function LeadPipelineBoard({
-  tenantId,
   initialLeads,
   contacts
 }:{
-  tenantId:string;
   initialLeads:Lead[];
   contacts:Contact[];
 }){
-  const [leads,setLeads]=useState(initialLeads);
-  const [draggingId,setDraggingId]=useState<string|null>(null);
-  const [savingId,setSavingId]=useState<string|null>(null);
+  const leads=initialLeads;
   const [leadFilter,setLeadFilter]=useState<"all"|"high_potential"|"potential"|"early"|"other">("all");
   const contactMap=useMemo(()=>new Map(contacts.map(c=>[c.id,c])),[contacts]);
 
@@ -63,60 +57,6 @@ export default function LeadPipelineBoard({
     }
     return leads.filter(l=>l.lead_status===leadFilter);
   },[leads,leadFilter]);
-
-  async function moveLead(id:string,nextStatus:string){
-    const current=leads.find(l=>l.id===id);
-    if(!current || current.status===nextStatus) return;
-
-    setSavingId(id);
-    setLeads(prev=>prev.map(l=>l.id===id?{...l,status:nextStatus}:l));
-
-    const supabase=createClient();
-    const {error}=await supabase
-      .from("handoffs")
-      .update({status:nextStatus,updated_at:new Date().toISOString()})
-      .eq("id",id)
-      .eq("tenant_id",tenantId);
-
-    if(error){
-      setLeads(prev=>prev.map(l=>l.id===id?{...l,status:current.status}:l));
-      setSavingId(null);
-      return;
-    }
-
-    const nextAIMode =
-      nextStatus==="returned_to_ai"
-        ? "active"
-        : ["pending","contacted"].includes(nextStatus)
-          ? "paused"
-          : null;
-
-    if(nextAIMode){
-      const {error:conversationError}=await supabase
-        .from("conversations")
-        .update({ai_mode:nextAIMode,updated_at:new Date().toISOString()})
-        .eq("id",current.conversation_id)
-        .eq("tenant_id",tenantId);
-
-      if(conversationError){
-        await supabase
-          .from("handoffs")
-          .update({status:current.status,updated_at:new Date().toISOString()})
-          .eq("id",id)
-          .eq("tenant_id",tenantId);
-
-        setLeads(prev=>prev.map(l=>l.id===id?{...l,status:current.status}:l));
-      }
-    }
-
-    setSavingId(null);
-  }
-
-  function drop(event:DragEvent<HTMLElement>,status:string){
-    event.preventDefault();
-    if(draggingId) moveLead(draggingId,status);
-    setDraggingId(null);
-  }
 
   return <div className="lead-pipeline-shell">
     <div className="lead-pipeline-filters">
@@ -140,12 +80,7 @@ export default function LeadPipelineBoard({
     <div className="lead-pipeline-board">
       {columns.map(column=>{
         const columnLeads=filteredLeads.filter(l=>l.status===column.id);
-        return <section
-          className="lead-pipeline-column"
-          key={column.id}
-          onDragOver={event=>event.preventDefault()}
-          onDrop={event=>drop(event,column.id)}
-        >
+        return <section className="lead-pipeline-column" key={column.id}>
           <div className="lead-pipeline-column-head">
             <div>
               <div className="lead-pipeline-title-row">
@@ -159,13 +94,7 @@ export default function LeadPipelineBoard({
           <div className="lead-pipeline-cards">
             {columnLeads.length ? columnLeads.map(lead=>{
               const contact=contactMap.get(lead.contact_id);
-              return <article
-                className={"lead-pipeline-card "+(savingId===lead.id?"saving":"")}
-                key={lead.id}
-                draggable
-                onDragStart={()=>setDraggingId(lead.id)}
-                onDragEnd={()=>setDraggingId(null)}
-              >
+              return <article className="lead-pipeline-card" key={lead.id}>
                 <div className="lead-pipeline-card-top">
                   <div>
                     <strong>{contact?.display_name||contact?.phone_number||"潛在客戶"}</strong>
@@ -184,21 +113,13 @@ export default function LeadPipelineBoard({
                 </div> : null}
 
                 <div className="lead-pipeline-card-footer">
-                  <select
-                    className="input lead-stage-select"
-                    value={lead.status}
-                    disabled={savingId===lead.id}
-                    onChange={e=>moveLead(lead.id,e.target.value)}
-                  >
-                    <option value="pending">待處理</option>
-                    <option value="contacted">人工處理中</option>
-                    <option value="returned_to_ai">已交回 AI</option>
-                    <option value="resolved">已完成</option>
-                  </select>
+                  <span className={"lead-auto-status "+lead.status}>
+                    {column.label}
+                  </span>
                   <a className="text-link" href={"/conversations/"+lead.conversation_id}>查看對話 →</a>
                 </div>
               </article>;
-            }) : <div className="lead-pipeline-empty">拖放跟進項目到呢度</div>}
+            }) : <div className="lead-pipeline-empty">暫時沒有項目</div>}
           </div>
         </section>;
       })}
