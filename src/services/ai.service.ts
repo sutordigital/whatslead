@@ -69,6 +69,7 @@ type GenerateAIReplyParams = {
   history: ConversationHistoryItem[];
   customerMessage: string;
   settings: TenantAISettings | null;
+  guidance?: string[];
   activeBooking?: ActiveBookingContext | null;
   executeHandoff: (args: HandoffToolArgs) => Promise<HandoffToolResult>;
   executeBooking: (args: BookingToolArgs) => Promise<BookingToolResult>;
@@ -290,7 +291,10 @@ function formatFAQs(faqs: unknown): string {
     .join("\n");
 }
 
-function buildSystemInstructions(settings: TenantAISettings | null): string {
+function buildSystemInstructions(
+  settings: TenantAISettings | null,
+  guidance: string[] = []
+): string {
   const hasConfiguredBusiness =
     Boolean(settings?.business_name?.trim()) ||
     Boolean(settings?.business_description?.trim()) ||
@@ -352,7 +356,12 @@ function buildSystemInstructions(settings: TenantAISettings | null): string {
     hourCycle: "h23"
   }).format(new Date());
 
-  return `${BASE_INSTRUCTIONS}\n\nCurrent Hong Kong date/time: ${hongKongNow}\nTimezone: Asia/Hong_Kong\n\n${workspaceContext}`;
+  const guidanceContext = guidance.length
+    ? "TENANT AI GUIDANCE — FOLLOW THESE WORKSPACE-SPECIFIC RULES WHEN RELEVANT:\n" +
+      guidance.map((item, index) => `${index + 1}. ${item}`).join("\n")
+    : "";
+
+  return `${BASE_INSTRUCTIONS}\n\nCurrent Hong Kong date/time: ${hongKongNow}\nTimezone: Asia/Hong_Kong\n\n${workspaceContext}${guidanceContext ? `\n\n${guidanceContext}` : ""}`;
 }
 
 function formatHistory(history: ConversationHistoryItem[]) {
@@ -434,6 +443,7 @@ export async function generateAIReply({
   history,
   customerMessage,
   settings,
+  guidance = [],
   activeBooking,
   executeHandoff,
   executeBooking,
@@ -446,7 +456,7 @@ export async function generateAIReply({
   }
 
   const conversationHistory = formatHistory(history);
-  const instructions = buildSystemInstructions(settings);
+  const instructions = buildSystemInstructions(settings, guidance);
 
   const bookingContext = activeBooking
     ? [
