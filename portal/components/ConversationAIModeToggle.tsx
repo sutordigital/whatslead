@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "../lib/supabase/client";
+import { useTenantEntitlement } from "./TenantEntitlementProvider";
 
 export default function ConversationAIModeToggle({
   conversationId,
@@ -15,12 +16,15 @@ export default function ConversationAIModeToggle({
   const [mode, setMode] = useState(initialMode);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const entitlement = useTenantEntitlement();
+  const locked = !entitlement.loading && !entitlement.canUseAutomation;
 
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
 
   async function toggle() {
+    if (locked) return;
     const next = mode === "active" ? "paused" : "active";
     setSaving(true);
     setError("");
@@ -94,7 +98,7 @@ export default function ConversationAIModeToggle({
           </div>
         </div>
 
-        <button className="btn" type="button" onClick={toggle} disabled={saving}>
+        <button className="btn" type="button" onClick={toggle} disabled={locked || saving}>
           {saving
             ? "更新中..."
             : isActive
@@ -103,6 +107,7 @@ export default function ConversationAIModeToggle({
         </button>
       </div>
 
+      {locked ? <div className="trial-lock-note">免費試用已結束。升級後可重新啟用 AI 自動回覆。</div> : null}
       {error ? <div style={{ marginTop: 10 }}>更新失敗：{error}</div> : null}
     </div>
   );
