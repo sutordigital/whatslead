@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import AuthShell from "../../components/AuthShell";
 import { createClient } from "../../lib/supabase/client";
 
 export default function SignupPage() {
@@ -37,7 +38,7 @@ export default function SignupPage() {
 
     if (error) {
       setLoading(false);
-      setError(error.message);
+      setError("暫時未能建立帳戶，請檢查資料後再試。");
       return;
     }
 
@@ -49,7 +50,7 @@ export default function SignupPage() {
 
       if (provisionError) {
         setLoading(false);
-        setError(provisionError.message);
+        setError("帳戶已建立，但工作空間建立失敗，請重新登入再試。");
         return;
       }
 
@@ -59,7 +60,7 @@ export default function SignupPage() {
     }
 
     setLoading(false);
-    setMessage("註冊成功。請檢查電郵並完成驗證。");
+    setMessage("帳戶已建立。請檢查電郵並完成驗證。");
   }
 
   async function signUpWithGoogle() {
@@ -78,38 +79,86 @@ export default function SignupPage() {
 
     if (error) {
       setLoading(false);
-      setError(error.message);
+      setError("暫時未能使用 Google 註冊，請稍後再試。");
     }
   }
 
   return (
-    <div className="card login">
-      <h1>建立 WhatsLead 帳戶</h1>
-      <p className="muted">建立你的工作空間，之後即可連接 WhatsApp Business。</p>
-
-      <button className="btn google-btn" type="button" onClick={signUpWithGoogle} disabled={loading}>
+    <AuthShell
+      eyebrow="開始使用 WhatsLead"
+      title="建立你的帳戶"
+      description="建立工作空間後，即可連接 WhatsApp Business 及開始設定 AI 回覆。"
+    >
+      <button className="auth-google-button" type="button" onClick={signUpWithGoogle} disabled={loading}>
+        <span className="auth-google-mark" aria-hidden="true">G</span>
         使用 Google 繼續
       </button>
 
       <div className="auth-divider"><span>或使用電郵註冊</span></div>
 
-      <form className="grid" onSubmit={submit}>
-        <input className="input" placeholder="你的姓名" value={fullName} onChange={e=>setFullName(e.target.value)} required />
-        <input className="input" placeholder="公司名稱" value={companyName} onChange={e=>setCompanyName(e.target.value)} required />
-        <input className="input" placeholder="工作電郵" type="email" value={email} onChange={e=>setEmail(e.target.value)} required />
-        <input className="input" placeholder="密碼（最少 8 個字元）" type="password" minLength={8} value={password} onChange={e=>setPassword(e.target.value)} required />
+      <form className="auth-form" onSubmit={submit}>
+        <label className="auth-field">
+          <span>你的姓名</span>
+          <input
+            className="input auth-input"
+            placeholder="例如：陳大文"
+            value={fullName}
+            onChange={e=>setFullName(e.target.value)}
+            autoComplete="name"
+            required
+          />
+        </label>
+
+        <label className="auth-field">
+          <span>公司名稱</span>
+          <input
+            className="input auth-input"
+            placeholder="你的公司名稱"
+            value={companyName}
+            onChange={e=>setCompanyName(e.target.value)}
+            autoComplete="organization"
+            required
+          />
+        </label>
+
+        <label className="auth-field">
+          <span>工作電郵</span>
+          <input
+            className="input auth-input"
+            placeholder="you@company.com"
+            type="email"
+            value={email}
+            onChange={e=>setEmail(e.target.value)}
+            autoComplete="email"
+            required
+          />
+        </label>
+
+        <label className="auth-field">
+          <span>密碼</span>
+          <input
+            className="input auth-input"
+            placeholder="最少 8 個字元"
+            type="password"
+            minLength={8}
+            value={password}
+            onChange={e=>setPassword(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+        </label>
 
         {error && <div className="error-note">{error}</div>}
         {message && <div className="success-note">{message}</div>}
 
-        <button className="btn" disabled={loading}>
-          {loading ? "處理中…" : "開始免費試用"}
+        <button className="btn auth-primary-button" disabled={loading}>
+          {loading ? "處理中…" : "建立帳戶"}
         </button>
       </form>
 
-      <p className="muted auth-footer">
+      <p className="auth-footer">
         已有帳戶？ <a className="text-link" href="/login">登入</a>
       </p>
-    </div>
+    </AuthShell>
   );
 }
