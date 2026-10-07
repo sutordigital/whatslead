@@ -1,4 +1,5 @@
 import express from "express";
+import { db } from "./db.js";
 import { getWhatsAppAccount } from "./services/whatsappAccount.service.js";
 import {
   getRecentConversationMessages,
@@ -223,6 +224,135 @@ app.post("/webhooks/meta", async (req, res) => {
   }
 });
 
+
+app.post("/internal/bookings/:id/status", async (req, res) => {
+  try {
+    const expectedSecret = process.env.PORTAL_API_SECRET;
+    const providedSecret = req.header("x-portal-secret");
+
+    if (!expectedSecret || !providedSecret || providedSecret !== expectedSecret) {
+      return res.sendStatus(401);
+    }
+
+    const bookingId = req.params.id;
+    const tenantId =
+      typeof req.body?.tenant_id === "string" ? req.body.tenant_id : "";
+    const nextStatus =
+      typeof req.body?.status === "string" ? req.body.status : "";
+
+    const allowedStatuses = [
+      "pending",
+      "confirmed",
+      "completed",
+      "cancelled",
+      "no_show"
+    ];
+
+    if (!tenantId || !allowedStatuses.includes(nextStatus)) {
+      return res.status(400).json({ error: "Invalid tenant_id or status" });
+    }
+
+    const result = await db.query(
+      `
+      select
+        b.id,
+        b.status as previous_status,
+        b.scheduled_at,
+        b.timezone,
+        c.id as conversation_id,
+        ct.whatsapp_id,
+        wa.phone_number_id,
+        ds.decrypted_secret as access_token
+      from public.bookings b
+      join public.conversations c
+        on c.id = b.conversation_id
+       and c.tenant_id = b.tenant_id
+      join public.contacts ct
+        on ct.id = b.contact_id
+       and ct.tenant_id = b.tenant_id
+      join public.whatsapp_accounts wa
+        on wa.id = c.whatsapp_account_id
+       and wa.tenant_id = b.tenant_id
+      join vault.decrypted_secrets ds
+        on ds.id = wa.vault_secret_id
+      where b.id = $1
+        and b.tenant_id = $2
+      limit 1
+      `,
+      [bookingId, tenantId]
+    );
+
+    if (!result.rowCount || !result.rows[0]) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    const booking = result.rows[0];
+
+    await db.query(
+      `
+      update public.bookings
+      set status = $1,
+          updated_at = now()
+      where id = $2
+        and tenant_id = $3
+      `,
+      [nextStatus, bookingId, tenantId]
+    );
+
+    let notificationSent = false;
+
+    if (
+      booking.previous_status !== nextStatus &&
+      (nextStatus === "confirmed" || nextStatus === "cancelled")
+    ) {
+      const scheduledText = new Intl.DateTimeFormat("zh-HK", {
+        timeZone: booking.timezone || "Asia/Hong_Kong",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true
+      }).format(new Date(booking.scheduled_at));
+
+      const text =
+        nextStatus === "confirmed"
+          ? `你嘅預約已確認 ✅\n時間：${scheduledText}\n如需更改時間，直接喺呢度話我哋知就可以。`
+          : `你嘅預約已取消。\n原定時間：${scheduledText}\n如果想重新安排時間，可以直接喺呢度話我哋知。`;
+
+      const sendResult = await sendWhatsAppTextMessage(
+        booking.phone_number_id,
+        booking.access_token,
+        booking.whatsapp_id,
+        text
+      );
+
+      const outboundMetaMessageId = sendResult?.messages?.[0]?.id;
+
+      if (outboundMetaMessageId) {
+        await persistOutboundTextMessage({
+          tenantId,
+          conversationId: booking.conversation_id,
+          metaMessageId: outboundMetaMessageId,
+          content: text,
+          senderType: "human"
+        });
+        notificationSent = true;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      status: nextStatus,
+      notification_sent: notificationSent
+    });
+  } catch (error) {
+    console.error("Booking status update failed:", error);
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : "Failed to update booking status"
+    });
+  }
+});
 
 app.post("/internal/conversations/:id/messages", async (req, res) => {
   try {
