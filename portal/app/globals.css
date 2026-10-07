@@ -1931,3 +1931,29 @@ pre{
     grid-column:1 / -1;
   }
 }
+
+
+/* Instant inbox switching */
+.inbox-conversation-button{
+  width:100%;
+  border:0;
+  border-top:1px solid #e9eef5;
+  border-radius:0;
+  color:inherit;
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+
+.inbox-conversation-button:focus-visible{
+  outline:2px solid #6ea6f8;
+  outline-offset:-2px;
+}
+
+.inbox-loading{
+  min-height:220px;
+  display:grid;
+  place-items:center;
+  color:#7a8799;
+  font-size:13px;
+}
