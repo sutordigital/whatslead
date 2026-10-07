@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTenantEntitlement } from "./TenantEntitlementProvider";
 
 export default function HumanReplyComposer({
   conversationId
@@ -12,12 +13,14 @@ export default function HumanReplyComposer({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const entitlement = useTenantEntitlement();
+  const locked = !entitlement.loading && !entitlement.canUseAutomation;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
 
     const message = text.trim();
-    if (!message) return;
+    if (!message || locked) return;
 
     setSending(true);
     setError("");
@@ -66,15 +69,17 @@ export default function HumanReplyComposer({
         value={text}
         onChange={(event) => setText(event.target.value)}
         maxLength={4000}
+        disabled={locked}
       />
 
       <div className="row">
         <small className="muted">{text.length}/4000</small>
-        <button className="btn" type="submit" disabled={sending || !text.trim()}>
+        <button className="btn" type="submit" disabled={locked || sending || !text.trim()}>
           {sending ? "傳送中..." : "傳送 WhatsApp"}
         </button>
       </div>
 
+      {locked ? <div className="trial-lock-note">免費試用已結束。升級後可再次由 CRM 傳送 WhatsApp 訊息。</div> : null}
       {error ? <div className="error-note">錯誤：{error}</div> : null}
     </form>
   );
