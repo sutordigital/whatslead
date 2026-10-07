@@ -53,7 +53,16 @@ export default function LeadPipelineBoard({
   const [leads,setLeads]=useState(initialLeads);
   const [draggingId,setDraggingId]=useState<string|null>(null);
   const [savingId,setSavingId]=useState<string|null>(null);
+  const [leadFilter,setLeadFilter]=useState<"all"|"high_potential"|"potential"|"early"|"other">("all");
   const contactMap=useMemo(()=>new Map(contacts.map(c=>[c.id,c])),[contacts]);
+
+  const filteredLeads=useMemo(()=>{
+    if(leadFilter==="all") return leads;
+    if(leadFilter==="other"){
+      return leads.filter(l=>!["high_potential","potential","early"].includes(l.lead_status));
+    }
+    return leads.filter(l=>l.lead_status===leadFilter);
+  },[leads,leadFilter]);
 
   async function moveLead(id:string,nextStatus:string){
     const current=leads.find(l=>l.id===id);
@@ -81,9 +90,27 @@ export default function LeadPipelineBoard({
   }
 
   return <div className="lead-pipeline-shell">
+    <div className="lead-pipeline-filters">
+      <button className={leadFilter==="all"?"active":""} type="button" onClick={()=>setLeadFilter("all")}>
+        全部 <span>{leads.length}</span>
+      </button>
+      <button className={leadFilter==="high_potential"?"active":""} type="button" onClick={()=>setLeadFilter("high_potential")}>
+        高潛力 <span>{leads.filter(l=>l.lead_status==="high_potential").length}</span>
+      </button>
+      <button className={leadFilter==="potential"?"active":""} type="button" onClick={()=>setLeadFilter("potential")}>
+        有潛力 <span>{leads.filter(l=>l.lead_status==="potential").length}</span>
+      </button>
+      <button className={leadFilter==="early"?"active":""} type="button" onClick={()=>setLeadFilter("early")}>
+        初步查詢 <span>{leads.filter(l=>l.lead_status==="early").length}</span>
+      </button>
+      <button className={leadFilter==="other"?"active":""} type="button" onClick={()=>setLeadFilter("other")}>
+        其他 <span>{leads.filter(l=>!["high_potential","potential","early"].includes(l.lead_status)).length}</span>
+      </button>
+    </div>
+
     <div className="lead-pipeline-board">
       {columns.map(column=>{
-        const columnLeads=leads.filter(l=>l.status===column.id);
+        const columnLeads=filteredLeads.filter(l=>l.status===column.id);
         return <section
           className="lead-pipeline-column"
           key={column.id}
