@@ -4,6 +4,17 @@ type ConversationHistoryItem = {
   sender_type: string;
   direction: string;
   content: string;
+  created_at: string;
+};
+
+export type ActiveBookingContext = {
+  id: string;
+  status: string;
+  bookingType: "consultation" | "follow_up" | "call" | "meeting";
+  scheduledAt: string;
+  durationMinutes: number;
+  timezone: string;
+  notes: string | null;
 };
 
 export type LeadStatus = "early" | "potential" | "high_potential";
@@ -58,6 +69,7 @@ type GenerateAIReplyParams = {
   history: ConversationHistoryItem[];
   customerMessage: string;
   settings: TenantAISettings | null;
+  activeBooking?: ActiveBookingContext | null;
   executeHandoff: (args: HandoffToolArgs) => Promise<HandoffToolResult>;
   executeBooking: (args: BookingToolArgs) => Promise<BookingToolResult>;
   executeAvailability: (args: AvailabilityToolArgs) => Promise<AvailabilityToolResult>;
@@ -117,6 +129,9 @@ Booking:
 - Never invent availability or claim a slot is free without a successful backend check or successful booking creation.
 - Bookings created by this tool are pending confirmation, not confirmed appointments.
 - If the customer asks for "tomorrow", "next Monday", or another relative date, resolve it using the current Hong Kong date supplied below.
+- Historical relative-date wording such as "today", "tomorrow", "next Monday", or "later" is not a source of truth after time has passed.
+- When an ACTIVE BOOKING record is supplied below, always treat its exact scheduled datetime and status as the source of truth for any booking-related reply.
+- Recalculate words such as "today" or "tomorrow" from the exact scheduled datetime using the current Hong Kong date/time. Never repeat stale relative-date wording from conversation history.
 - Only tell the prospect the booking request was created if the tool result says success=true.
 - If create_booking fails because the requested time is unavailable or outside configured hours, explain briefly and ask for another time or offer to check a specific date.
 - When successful, make clear that the booking is pending confirmation unless a human has explicitly confirmed it.
@@ -348,7 +363,17 @@ function formatHistory(history: ConversationHistoryItem[]) {
           ? "Customer"
           : "WhatsLead";
 
-      return `${role}: ${message.content}`;
+      const timestamp = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Hong_Kong",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23"
+      }).format(new Date(message.created_at));
+
+      return `[${timestamp} HKT] ${role}: ${message.content}`;
     })
     .join("\n");
 }
@@ -409,6 +434,7 @@ export async function generateAIReply({
   history,
   customerMessage,
   settings,
+  activeBooking,
   executeHandoff,
   executeBooking,
   executeAvailability
@@ -422,9 +448,22 @@ export async function generateAIReply({
   const conversationHistory = formatHistory(history);
   const instructions = buildSystemInstructions(settings);
 
+  const bookingContext = activeBooking
+    ? [
+        "ACTIVE BOOKING — SOURCE OF TRUTH",
+        `Booking ID: ${activeBooking.id}`,
+        `Status: ${activeBooking.status}`,
+        `Type: ${activeBooking.bookingType}`,
+        `Scheduled at (UTC): ${activeBooking.scheduledAt}`,
+        `Timezone: ${activeBooking.timezone}`,
+        `Duration minutes: ${activeBooking.durationMinutes}`,
+        activeBooking.notes ? `Notes: ${activeBooking.notes}` : ""
+      ].filter(Boolean).join("\n")
+    : "ACTIVE BOOKING — NONE";
+
   const prompt = conversationHistory
-    ? `Recent conversation:\n${conversationHistory}\n\nLatest customer message:\n${customerMessage}`
-    : `Latest customer message:\n${customerMessage}`;
+    ? `${bookingContext}\n\nRecent conversation with message timestamps:\n${conversationHistory}\n\nLatest customer message:\n${customerMessage}`
+    : `${bookingContext}\n\nLatest customer message:\n${customerMessage}`;
 
   const initialInput = [
     {
