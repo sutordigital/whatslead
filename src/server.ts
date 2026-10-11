@@ -10,6 +10,7 @@ import { sendWhatsAppTextMessage } from "./services/whatsapp.service.js";
 import { generateAIReply } from "./services/ai.service.js";
 import { persistHumanHandoff } from "./services/handoff.service.js";
 import { getTenantAISettings } from "./services/tenantAISettings.service.js";
+import { getTenantAIPersonaSettings, type TenantAIPersonaSettings } from "./services/tenantAIPersonaSettings.service.js";
 import { getActiveAIGuidance } from "./services/aiGuidance.service.js";
 import { getConversationSendContext, pauseConversationAI } from "./services/conversation.service.js";
 import { getTenantEntitlement } from "./services/entitlement.service.js";
@@ -23,6 +24,40 @@ const app = express();
 app.use(express.json());
 
 const PORT = Number(process.env.PORT) || 3000;
+
+function randomBetween(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function getInitialReplyDelayMs(persona: TenantAIPersonaSettings | null) {
+  switch (persona?.response_pacing) {
+    case "instant":
+      return randomBetween(300, 900);
+    case "thoughtful":
+      return randomBetween(3500, 6500);
+    case "natural":
+    default:
+      return randomBetween(1600, 4200);
+  }
+}
+
+function splitNaturalMessageBubbles(text: string, enabled: boolean) {
+  if (!enabled) return [text.trim()];
+
+  const parts = text
+    .split(/\n\s*\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length <= 1) return [text.trim()];
+  if (parts.length <= 3) return parts;
+
+  return [parts[0], parts[1], parts.slice(2).join("\n\n")];
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 app.get("/", (_req, res) => {
   res.json({ app: "WhatsLead", status: "running" });
@@ -106,8 +141,9 @@ app.post("/webhooks/meta", async (req, res) => {
     let replyText =
       "Thanks for your message! 我哋已經收到你嘅查詢，團隊會盡快跟進你。";
 
-    const [aiSettings, aiGuidance] = await Promise.all([
+    const [aiSettings, personaSettings, aiGuidance] = await Promise.all([
       getTenantAISettings(account.tenant_id),
+      getTenantAIPersonaSettings(account.tenant_id),
       getActiveAIGuidance(account.tenant_id)
     ]);
 
@@ -138,6 +174,7 @@ app.post("/webhooks/meta", async (req, res) => {
           history: priorHistory,
           customerMessage,
           settings: aiSettings,
+          personaSettings,
           guidance: aiGuidance,
           activeBooking,
           executeHandoff: async ({ reason, lead_status, summary }) => {
@@ -212,25 +249,39 @@ app.post("/webhooks/meta", async (req, res) => {
       }
     }
 
-    const sendResult = await sendWhatsAppTextMessage(
-      account.phone_number_id,
-      account.access_token,
-      message.from,
-      replyText
+    await sleep(getInitialReplyDelayMs(personaSettings));
+
+    const bubbles = splitNaturalMessageBubbles(
+      replyText,
+      personaSettings?.message_chunking !== false
     );
 
-    const outboundMetaMessageId = sendResult?.messages?.[0]?.id;
+    for (let index = 0; index < bubbles.length; index += 1) {
+      if (index > 0) {
+        await sleep(randomBetween(700, 1500));
+      }
 
-    if (conversationId && outboundMetaMessageId) {
-      try {
-        await persistOutboundTextMessage({
-          tenantId: account.tenant_id,
-          conversationId,
-          metaMessageId: outboundMetaMessageId,
-          content: replyText
-        });
-      } catch (error) {
-        console.error("Outbound message persistence failed:", error);
+      const bubbleText = bubbles[index];
+      const sendResult = await sendWhatsAppTextMessage(
+        account.phone_number_id,
+        account.access_token,
+        message.from,
+        bubbleText
+      );
+
+      const outboundMetaMessageId = sendResult?.messages?.[0]?.id;
+
+      if (conversationId && outboundMetaMessageId) {
+        try {
+          await persistOutboundTextMessage({
+            tenantId: account.tenant_id,
+            conversationId,
+            metaMessageId: outboundMetaMessageId,
+            content: bubbleText
+          });
+        } catch (error) {
+          console.error("Outbound message persistence failed:", error);
+        }
       }
     }
 
