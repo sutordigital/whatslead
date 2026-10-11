@@ -18,6 +18,7 @@ type Persona = {
   explain_uncertainty?: boolean;
   tone_mirroring?: "off"|"low"|"medium";
   after_hours_style?: "same_as_daytime"|"acknowledge_after_hours";
+  business_relevance_mode?: "strict"|"balanced"|"open";
 };
 
 const cardStyle=(active:boolean)=>({
@@ -61,7 +62,8 @@ export default function AIPersonaSettingsForm({tenantId,initial}:{tenantId:strin
     remember_known_details:initial?.remember_known_details ?? true,
     explain_uncertainty:initial?.explain_uncertainty ?? true,
     tone_mirroring:initial?.tone_mirroring || "low",
-    after_hours_style:initial?.after_hours_style || "acknowledge_after_hours"
+    after_hours_style:initial?.after_hours_style || "acknowledge_after_hours",
+    business_relevance_mode:initial?.business_relevance_mode || "strict"
   });
 
   const set=(key:string,value:any)=>setForm(prev=>({...prev,[key]:value}));
@@ -165,7 +167,20 @@ export default function AIPersonaSettingsForm({tenantId,initial}:{tenantId:strin
     </div>
 
     <div>
-      <h3>10. 非辦公時間</h3>
+      <h3>10. AI 回覆範圍</h3>
+      <p className="muted">控制 AI 會唔會回答同你公司無關嘅問題。</p>
+      <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))"}}>
+        <Choice name="relevance" value="strict" checked={form.business_relevance_mode==="strict"} onChange={()=>set("business_relevance_mode","strict")} title="只答公司／服務相關（推薦）" example="『Carbonara 點整？』→ 唔教食譜，會禮貌帶返去公司服務。"/>
+        <Choice name="relevance" value="balanced" checked={form.business_relevance_mode==="balanced"} onChange={()=>set("business_relevance_mode","balanced")} title="可少量閒聊" example="『今日好熱』→ 可以簡短回應；但『幫我寫功課』→ 會帶返去公司服務。"/>
+        <Choice name="relevance" value="open" checked={form.business_relevance_mode==="open"} onChange={()=>set("business_relevance_mode","open")} title="較開放" example="AI 可以答多啲一般問題，但仍會優先處理公司相關查詢。"/>
+      </div>
+      <div className="muted" style={{marginTop:10,fontSize:13}}>
+        Relevant：『Google Ads 幾錢？』→ 正常回答。　Irrelevant：『Carbonara 點整？』→ 不回答內容，只作簡短引導。
+      </div>
+    </div>
+
+    <div>
+      <h3>11. 非辦公時間</h3>
       <div style={{display:"flex",gap:18,flexWrap:"wrap"}}>
         <label><input type="radio" name="afterhours" checked={form.after_hours_style==="same_as_daytime"} onChange={()=>set("after_hours_style","same_as_daytime")}/> 同平時一樣</label>
         <label><input type="radio" name="afterhours" checked={form.after_hours_style==="acknowledge_after_hours"} onChange={()=>set("after_hours_style","acknowledge_after_hours")}/> 提醒真人會於辦公時間跟進（推薦）</label>
