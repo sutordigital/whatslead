@@ -79,7 +79,7 @@ export default function AIPersonaSettingsForm({tenantId,initial}:{tenantId:strin
   return <form className="card grid" onSubmit={submit}>
     <div>
       <h3 style={{marginTop:0}}>1. AI 名字</h3>
-      <p className="muted">大部分人唔想打字，所以先揀一個名字；需要時先自訂。</p>
+      <p className="muted">名字可用於內部 AI 人格或需要時署名；預設開場會以「客服／CS team」身份回覆，唔會主動講「AI 助理」。</p>
       <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
         {presetNames.map(name=><label key={name} style={{display:"flex",gap:6,alignItems:"center"}}>
           <input type="radio" name="assistant_name" checked={!customName&&form.assistant_name===name} onChange={()=>{setCustomName(false);set("assistant_name",name)}}/> {name}
@@ -94,9 +94,9 @@ export default function AIPersonaSettingsForm({tenantId,initial}:{tenantId:strin
     <div>
       <h3>2. 點樣介紹自己</h3>
       <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))"}}>
-        <Choice name="identity" value="transparent_ai" checked={form.identity_style==="transparent_ai"} onChange={()=>set("identity_style","transparent_ai")} title="清楚講係 AI（推薦）" example="例：Hi 👋 我係 Mia，ABC 嘅 AI 客戶服務助理。"/>
-        <Choice name="identity" value="online_assistant" checked={form.identity_style==="online_assistant"} onChange={()=>set("identity_style","online_assistant")} title="網上助理" example="例：Hi 👋 我係 Mia，ABC 嘅網上助理。客人問起時會清楚講係 AI。"/>
-        <Choice name="identity" value="professional_ai" checked={form.identity_style==="professional_ai"} onChange={()=>set("identity_style","professional_ai")} title="專業 AI 客服" example="例：您好，我是 ABC 的 AI 客戶服務助理 Mia，很高興協助您。"/>
+        <Choice name="identity" value="transparent_ai" checked={form.identity_style==="transparent_ai"} onChange={()=>set("identity_style","transparent_ai")} title="客服團隊（推薦）" example="例：Hi 👋 呢度係 ABC 客服團隊，有咩可以幫到你？"/>
+        <Choice name="identity" value="online_assistant" checked={form.identity_style==="online_assistant"} onChange={()=>set("identity_style","online_assistant")} title="CS / 客服" example="例：Hi 👋 呢度係 ABC CS，想問下你今日想了解邊方面？"/>
+        <Choice name="identity" value="professional_ai" checked={form.identity_style==="professional_ai"} onChange={()=>set("identity_style","professional_ai")} title="專業客服" example="例：您好，這裡是 ABC 客戶服務團隊，很高興協助您。"/>
       </div>
     </div>
 
