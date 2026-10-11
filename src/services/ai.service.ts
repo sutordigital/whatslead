@@ -1,4 +1,5 @@
 import type { TenantAISettings } from "./tenantAISettings.service.js";
+import type { TenantAIPersonaSettings } from "./tenantAIPersonaSettings.service.js";
 
 type ConversationHistoryItem = {
   sender_type: string;
@@ -69,6 +70,7 @@ type GenerateAIReplyParams = {
   history: ConversationHistoryItem[];
   customerMessage: string;
   settings: TenantAISettings | null;
+  personaSettings?: TenantAIPersonaSettings | null;
   guidance?: string[];
   activeBooking?: ActiveBookingContext | null;
   executeHandoff: (args: HandoffToolArgs) => Promise<HandoffToolResult>;
@@ -291,9 +293,87 @@ function formatFAQs(faqs: unknown): string {
     .join("\n");
 }
 
+function buildPersonaInstructions(persona: TenantAIPersonaSettings | null): string {
+  if (!persona) return "";
+
+  const personality = {
+    professional: "Professional, calm and concise. Avoid slang. Use very few emojis.",
+    friendly: "Warm and approachable. Use natural conversational wording and light emojis.",
+    hk_natural: "Natural Hong Kong WhatsApp style. If the customer uses Cantonese/Traditional Chinese, reply in natural Hong Kong Cantonese without sounding forced or overly slangy."
+  }[persona.personality_style];
+
+  const language = {
+    auto: "Follow the customer's language automatically. If they switch language, follow naturally.",
+    traditional_zh: "Prefer Traditional Chinese. Use Hong Kong wording when appropriate.",
+    english: "Prefer English unless the customer clearly needs another language.",
+    bilingual: "Use the customer's main language and add brief bilingual clarification only when it genuinely helps.",
+    mandarin: "Prefer Mandarin-style Chinese unless the customer uses another language."
+  }[persona.language_mode];
+
+  const emoji = {
+    none: "Do not use emojis.",
+    light: "Use emojis lightly: usually zero or one in a message, only when natural.",
+    friendly: "You may use friendly emojis, but never in every sentence and never excessively."
+  }[persona.emoji_level];
+
+  const length = {
+    short: "Keep replies very short, usually 1-2 short sentences.",
+    balanced: "Keep replies concise and useful, usually 2-4 short sentences.",
+    detailed: "Give more detail when useful, but still keep the message WhatsApp-friendly and avoid walls of text."
+  }[persona.message_length];
+
+  const identity = {
+    transparent_ai: `Your assistant name is ${persona.assistant_name}. On the first assistant reply in a new conversation, briefly introduce yourself as an AI assistant for the business. Never pretend to be human.`,
+    online_assistant: `Your assistant name is ${persona.assistant_name}. On the first assistant reply, introduce yourself as the business's online assistant. If asked whether you are human, clearly say you are an AI assistant. Never pretend to be human.`,
+    professional_ai: `Your assistant name is ${persona.assistant_name}. On the first assistant reply, introduce yourself formally as the business's AI customer service assistant. Never pretend to be human.`
+  }[persona.identity_style];
+
+  const mirroring = {
+    off: "Keep the configured tone consistently; do not mirror the customer's tone.",
+    low: "Lightly adapt to the customer's formality and language while keeping the configured brand personality.",
+    medium: "Adapt noticeably to the customer's level of formality and conversational style, while never copying rude, unsafe or inappropriate language."
+  }[persona.tone_mirroring];
+
+  const toggles = [
+    persona.message_chunking
+      ? "When a reply has multiple distinct thoughts, separate them with a blank line so the delivery layer can send them as 2-3 natural WhatsApp bubbles. Do not split every reply."
+      : "Return each reply as one message.",
+    persona.acknowledge_before_action
+      ? "Before checking availability, booking, escalating, or doing another backend action, naturally acknowledge the customer's request when useful."
+      : "",
+    persona.ask_one_question_at_a_time
+      ? "Prefer one clear question at a time. Ask two only when they are tightly related."
+      : "",
+    persona.avoid_repetitive_greetings
+      ? "Do not repeat greetings, thank-yous or generic acknowledgements on every turn."
+      : "",
+    persona.remember_known_details
+      ? "Use details already learned in this conversation and never ask for information the customer has already provided."
+      : "",
+    persona.explain_uncertainty
+      ? "If you are uncertain, say so naturally and offer human confirmation instead of guessing."
+      : "",
+    persona.after_hours_style === "acknowledge_after_hours"
+      ? "If workspace/business hours indicate the team is unavailable, you may explain that a human may follow up during working hours while continuing to help with what you can."
+      : ""
+  ].filter(Boolean);
+
+  return [
+    "AI PERSONA & CONVERSATION BEHAVIOUR",
+    identity,
+    personality,
+    language,
+    emoji,
+    length,
+    mirroring,
+    ...toggles
+  ].filter(Boolean).join("\n- ");
+}
+
 function buildSystemInstructions(
   settings: TenantAISettings | null,
-  guidance: string[] = []
+  guidance: string[] = [],
+  personaSettings: TenantAIPersonaSettings | null = null
 ): string {
   const hasConfiguredBusiness =
     Boolean(settings?.business_name?.trim()) ||
@@ -356,12 +436,14 @@ function buildSystemInstructions(
     hourCycle: "h23"
   }).format(new Date());
 
+  const personaContext = buildPersonaInstructions(personaSettings);
+
   const guidanceContext = guidance.length
     ? "TENANT AI GUIDANCE — FOLLOW THESE WORKSPACE-SPECIFIC RULES WHEN RELEVANT:\n" +
       guidance.map((item, index) => `${index + 1}. ${item}`).join("\n")
     : "";
 
-  return `${BASE_INSTRUCTIONS}\n\nCurrent Hong Kong date/time: ${hongKongNow}\nTimezone: Asia/Hong_Kong\n\n${workspaceContext}${guidanceContext ? `\n\n${guidanceContext}` : ""}`;
+  return `${BASE_INSTRUCTIONS}\n\nCurrent Hong Kong date/time: ${hongKongNow}\nTimezone: Asia/Hong_Kong\n\n${workspaceContext}${personaContext ? `\n\n${personaContext}` : ""}${guidanceContext ? `\n\n${guidanceContext}` : ""}`;
 }
 
 function formatHistory(history: ConversationHistoryItem[]) {
@@ -443,6 +525,7 @@ export async function generateAIReply({
   history,
   customerMessage,
   settings,
+  personaSettings = null,
   guidance = [],
   activeBooking,
   executeHandoff,
@@ -456,7 +539,7 @@ export async function generateAIReply({
   }
 
   const conversationHistory = formatHistory(history);
-  const instructions = buildSystemInstructions(settings, guidance);
+  const instructions = buildSystemInstructions(settings, guidance, personaSettings);
 
   const bookingContext = activeBooking
     ? [
