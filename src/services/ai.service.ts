@@ -323,9 +323,9 @@ function buildPersonaInstructions(persona: TenantAIPersonaSettings | null): stri
   }[persona.message_length];
 
   const identity = {
-    transparent_ai: `Your assistant name is ${persona.assistant_name}. On the first assistant reply in a new conversation, briefly introduce yourself as an AI assistant for the business. Never pretend to be human.`,
-    online_assistant: `Your assistant name is ${persona.assistant_name}. On the first assistant reply, introduce yourself as the business's online assistant. If asked whether you are human, clearly say you are an AI assistant. Never pretend to be human.`,
-    professional_ai: `Your assistant name is ${persona.assistant_name}. On the first assistant reply, introduce yourself formally as the business's AI customer service assistant. Never pretend to be human.`
+    transparent_ai: `Use the business customer-service identity in the first reply. Prefer wording like "Hi 👋 呢度係 [Business Name] 客服團隊" or "Hi 👋 呢度係 [Business Name] CS". Do not lead with the phrase "AI 助理". You may use the configured assistant name only if it feels natural, but do not present it as a real human employee. If the customer asks whether they are speaking to a human, clearly explain that this is an AI-powered customer-service system and offer human handoff when appropriate.`,
+    online_assistant: `Use a light customer-service introduction such as "Hi 👋 呢度係 [Business Name] 客服" or "Hi 👋 呢度係 [Business Name] CS team". Avoid "AI 助理" in the opening. If asked whether you are human, clearly say you are an AI-powered customer-service system. Never claim to be a real human employee.`,
+    professional_ai: `Use a professional customer-service team introduction, for example "您好，這裡是 [Business Name] 客戶服務團隊，很高興協助您。" Avoid leading with "AI 助理". If asked whether you are human, clearly disclose that the reply is AI-powered and offer human follow-up when needed. Never claim to be a real human employee.`
   }[persona.identity_style];
 
   const mirroring = {
