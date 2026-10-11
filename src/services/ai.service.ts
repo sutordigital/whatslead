@@ -334,6 +334,12 @@ function buildPersonaInstructions(persona: TenantAIPersonaSettings | null): stri
     medium: "Adapt noticeably to the customer's level of formality and conversational style, while never copying rude, unsafe or inappropriate language."
   }[persona.tone_mirroring];
 
+  const relevance = {
+    strict: "Stay strictly within the configured business, its services, products, policies, bookings, sales process, and the active business conversation. If the customer asks for unrelated knowledge or advice, do not answer the unrelated content. Briefly say it is outside the scope of this customer-service channel and redirect to what the business can help with. Small greetings are allowed, but do not become a general-purpose assistant.",
+    balanced: "Allow brief natural small talk, but do not provide substantive answers to unrelated knowledge requests. Politely redirect unrelated requests back to the business and its services.",
+    open: "You may answer more broadly when useful, but still prioritize the configured business and never let unrelated topics derail the sales/customer-service purpose."
+  }[persona.business_relevance_mode];
+
   const toggles = [
     persona.message_chunking
       ? "When a reply has multiple distinct thoughts, separate them with a blank line so the delivery layer can send them as 2-3 natural WhatsApp bubbles. Do not split every reply."
@@ -366,6 +372,7 @@ function buildPersonaInstructions(persona: TenantAIPersonaSettings | null): stri
     emoji,
     length,
     mirroring,
+    `Business relevance policy: ${relevance}`,
     ...toggles
   ].filter(Boolean).join("\n- ");
 }

@@ -16,6 +16,7 @@ export interface TenantAIPersonaSettings {
   explain_uncertainty: boolean;
   tone_mirroring: "off" | "low" | "medium";
   after_hours_style: "same_as_daytime" | "acknowledge_after_hours";
+  business_relevance_mode: "strict" | "balanced" | "open";
 }
 
 export async function getTenantAIPersonaSettings(
@@ -38,7 +39,8 @@ export async function getTenantAIPersonaSettings(
       remember_known_details,
       explain_uncertainty,
       tone_mirroring,
-      after_hours_style
+      after_hours_style,
+      business_relevance_mode
     from public.tenant_ai_persona_settings
     where tenant_id = $1
     limit 1
