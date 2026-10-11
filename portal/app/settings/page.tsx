@@ -1,6 +1,7 @@
 import PortalShell from "../../components/PortalShell";
 import AISettingsForm from "../../components/AISettingsForm";
 import BookingSettingsForm from "../../components/BookingSettingsForm";
+import AIPersonaSettingsForm from "../../components/AIPersonaSettingsForm";
 import { requireTenant } from "../../lib/tenant";
 
 export default async function SettingsPage(){
@@ -12,7 +13,7 @@ export default async function SettingsPage(){
     .eq("tenant_id",tenantId)
     .maybeSingle();
 
-  const [{ data: account }, { data: bookingSettings }] = await Promise.all([
+  const [{ data: account }, { data: bookingSettings }, { data: personaSettings }] = await Promise.all([
     supabase
       .from("whatsapp_accounts")
       .select("display_number,status,waba_id,phone_number_id")
@@ -21,6 +22,11 @@ export default async function SettingsPage(){
       .maybeSingle(),
     supabase
       .from("tenant_booking_settings")
+      .select("*")
+      .eq("tenant_id",tenantId)
+      .maybeSingle(),
+    supabase
+      .from("tenant_ai_persona_settings")
       .select("*")
       .eq("tenant_id",tenantId)
       .maybeSingle()
@@ -54,6 +60,9 @@ export default async function SettingsPage(){
 
     <h2>AI 設定</h2>
     <AISettingsForm tenantId={tenantId} initial={settings}/>
+
+    <h2>AI 人格與對話方式</h2>
+    <AIPersonaSettingsForm tenantId={tenantId} initial={personaSettings}/>
 
     <h2>預約設定</h2>
     <BookingSettingsForm tenantId={tenantId} initial={bookingSettings}/>
