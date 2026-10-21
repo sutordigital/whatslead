@@ -2812,3 +2812,21 @@ pre{
 .calendar-agenda-main small strong{
   color:#53627a;
 }
+
+
+/* WhatsLead brand assets */
+.brand-logo{
+  display:block;
+  width:188px;
+  max-width:100%;
+  height:auto;
+}
+.auth-brand-logo{
+  display:block;
+  width:258px;
+  max-width:min(72vw,258px);
+  height:auto;
+}
+@media(max-width:900px){
+  .brand-logo{width:164px}
+}
