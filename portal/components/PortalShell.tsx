@@ -25,14 +25,8 @@ export default function PortalShell({ children }: { children: React.ReactNode })
   return (
     <div className="shell">
       <aside className="sidebar">
-        <Link href="/dashboard" className="brand-wrap">
-          <div className="portal-brand-mark" aria-hidden="true">W</div>
-          <div>
-            <div className="brand">
-              Whats<span>Lead</span>
-            </div>
-            <div className="brand-sub">by Sutor Digital</div>
-          </div>
+        <Link href="/dashboard" className="brand-wrap" aria-label="WhatsLead by Sutor Digital">
+          <img className="brand-logo" src="/whatslead-logo.svg" alt="WhatsLead by Sutor Digital" />
         </Link>
 
         <nav className="nav">
