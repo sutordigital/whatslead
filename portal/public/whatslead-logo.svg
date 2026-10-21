@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 280" role="img" aria-label="WhatsLead by Sutor Digital">
+  <defs>
+    <linearGradient id="navy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17284a"/><stop offset="1" stop-color="#0d1830"/></linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2785ff"/><stop offset="1" stop-color="#1168f4"/></linearGradient>
+  </defs>
+  <g transform="translate(10 10) scale(.50)">
+    <path fill="url(#navy)" d="M65 218C82 111 173 45 283 48c58 2 111 24 150 59l-78 52c-20 13-31 34-31 58v92l-47-60c-14-18-41-19-56-1l-66 79-62-86c-9-12-18-19-28-23Zm30 43 60 90-31 85 76-42Z"/>
+    <path fill="url(#blue)" d="M207 400l52-68 43 57c16 22 46 25 66 7l51-44c20-17 31-42 31-68V160c34 46 50 103 43 159-13 107-106 191-215 191-30 0-59-6-86-17-24-10-33-38-18-59l33-44Z"/>
+    <path d="M91 220 181 342 249 248 326 354 412 281" fill="none" stroke="#fff" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="290" y="145" font-family="Inter, Arial, sans-serif" font-size="116" font-weight="800" letter-spacing="-6" fill="#101b34">Whats</text>
+  <text x="615" y="145" font-family="Inter, Arial, sans-serif" font-size="116" font-weight="800" letter-spacing="-6" fill="#1976f8">Lead</text>
+  <text x="298" y="222" font-family="Inter, Arial, sans-serif" font-size="48" font-weight="500" letter-spacing="1" fill="#8a98ad">by Sutor Digital</text>
+</svg>
