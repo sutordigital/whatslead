@@ -34,9 +34,8 @@ export default function AuthShell({
   return (
     <main className="auth-page">
       <section className="auth-hero">
-        <a className="auth-brand" href="/">
-          <span className="auth-brand-mark" aria-hidden="true">W</span>
-          <span>Whats<span>Lead</span></span>
+        <a className="auth-brand" href="/" aria-label="WhatsLead by Sutor Digital">
+          <img className="auth-brand-logo" src="/whatslead-logo.svg" alt="WhatsLead by Sutor Digital" />
         </a>
 
         <div className="auth-hero-content">
